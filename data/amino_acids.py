@@ -43,7 +43,7 @@ class AminoAcids:
 
         for prop in properties:
             changed_data, new_alphabets = self.change_all_dataset(dataset.Sequences, prop)
-            changed_onehot = dataset.getonehotencodedSeq(new_alphabets,changed_data)
+            changed_onehot = dataset.get_onehot_encodedseq(new_alphabets,changed_data)
             changed_onehot_reshaped = changed_onehot.reshape(len(changed_onehot), seqlength, len(new_alphabets))
             new_length += len(new_alphabets)
             new_dataset = np.append(new_dataset, changed_onehot_reshaped, axis=2)
