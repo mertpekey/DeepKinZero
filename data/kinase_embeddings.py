@@ -68,11 +68,13 @@ class KinaseEmbedding:
     """
     This class holds the list of all kinases and create the kinase embeddings for each one
     """
+    
     allkinases = [] # the list of all kinases
     UniProtID_to_Kinase = {} # a dictionary of uniprotID to kinase
     AllKinaseEmbeddings = [] # A list of all kinases embedded vectors
     KE_to_Kinase = {} # a dictionary of kinase Embedding vector to kinase class
     Embedding_size = 0 # The size of Kinase embeddings
+
     def __init__(self, Family = True, Group = True, Pathway = True, Kin2Vec = True, InterProDomains = True, Enzymes = True, SubCellLoc = True, GO_C_vec = True, GO_F_vec = True, GO_P_vec = True):
         """
         Get the paramethers for class embedding and initilize some variables to use later then run readKinaseEmbedding and ReadKinases methods to read all the kinases and create the embeddings for them
@@ -201,8 +203,8 @@ class KinaseEmbedding:
             kinases (list of kinase): The list of kinases to produce class embedding for
         
         Return:
-            KinaseEmbeddings list which is the sorted class embeddings for each of the input kinases
-            UniqueClassEmbedding list of unique class embeddings
+            KinaseEmbeddings: list which is the sorted class embeddings for each of the input kinases
+            UniqueClassEmbedding: list of unique class embeddings
         """
         KinaseEmbeddings = []
         for kin in kinases:
