@@ -1,142 +1,142 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
+import numpy as np
 
-class EndToEndModel(nn.Module):
-    def __init__(self, vocabnum, class_embedding_size, params=None, seqlens=15, seed=None, write_embedding_vis=False):
-        super(EndToEndModel, self).__init__()
-        
-        if params is not None:
-            self.params = params
-        self.seed = seed
-        torch.manual_seed(self.seed)
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+
+class LayerNormLSTMCell(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(LayerNormLSTMCell, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.lstm_cell = nn.LSTMCell(input_size, hidden_size)
+        self.layer_norm = nn.LayerNorm(hidden_size*4) # 4 because LSTM has 4 gates
+    
+    def forward(self, input, hx):
+        h, c = hx
+        gates = self.lstm_cell(input, (h, c))
+        normalized_gates = self.layer_norm(gates)
+        new_h, new_c = nn.functional.lstm_cell(input, normalized_gates)
+        return new_h, new_c
+
+
+class MyModel(nn.Module):
+    def __init__(self, Params, vocabnum, seq_lens, ClassEmbeddingsize):
+        super(MyModel, self).__init__()
+
+        self.Params = Params
         self.vocabnum = vocabnum
-        self.seq_lens = seqlens
-        self.ModelSaved = False
-        self.class_embedding_size = class_embedding_size
-        self.write_embedding_vis = write_embedding_vis
-        self.Models = []
-        self.Graphs = []
-        self.batch_ph = []
-        self.seq_len_ph = []
-        self.keep_prob_ph = []
-        self.is_training = []
-        self.CE = []
-        self.CKE = []
-        self.TCI = []
-        self.alphas = []
-        self.train_writer = {}
-        self.test_writer = {}
-        self.val_writer = {}
-        self.init_params()
-        self.initilize()
+        self.seq_lens = seq_lens
+        self.ClassEmbeddingsize = ClassEmbeddingsize
 
-    def init_params(self):
-        self.params = {
-            "rnn_unit_type": "LNlstm", 
-            "num_layers": 1, 
-            "num_hidden_units": 500, 
-            "dropoutval": 0.5, 
-            "learningrate": 0.003, 
-            "useAtt": False, 
-            "useEmbeddingLayer": False, 
-            "useEmbeddingLayer": False, 
-            "num_of_Convs": [], 
-            "UseBatchNormalization1": True, 
-            "UseBatchNormalization2": True, 
-            "EMBEDDING_DIM": 500, 
-            "ATTENTION_SIZE": 5, 
-            "IncreaseEmbSize": 0, 
-            "Bidirectional": True, 
-            "Dropout1": True, 
-            "Dropout2": True, 
-            "Dropout3": False, 
-            "regs": 0.001, 
-            "batch_size": 64, 
-            "ClippingGradients": 9.0, 
-            "activation1": "tanh", 
-            "LRDecay": True, 
-            "seed": None, 
-            "NumofModels": 3
-        }
-        self.LogDir = "" 
-        self.ckpt_dir = "" 
-        self.loss = []
-        self.num_examples = 0 
-        self.training_epochs = 200 
-        self.display_step = 10 
-        self.DELTA = 0.5 
-        self.useEmbeddingLayer = True 
-        self.IncreaseEmbSize = 0 
 
-    def rnn_cell(self, L=0):
-        # Get the cell type
-        if self.Params["rnn_unit_type"] == 'rnn':
-            rnn_cell_type = nn.RNNCell
-        elif self.Params["rnn_unit_type"] == 'gru':
-            rnn_cell_type = nn.GRUCell
-        elif self.Params["rnn_unit_type"] == 'lstm':
-            rnn_cell_type = nn.LSTMCell
-        elif self.Params["rnn_unit_type"] == 'LNlstm':
-            raise NotImplementedError("LayerNormBasicLSTMCell not available in PyTorch")
-        elif self.Params["rnn_unit_type"] == 'CUDNNLSTM':
-            raise NotImplementedError("CudnnLSTM not available in PyTorch")
+        self.W = torch.nn.Parameter(torch.randn(DE.shape[1], self.ClassEmbeddingsize + 1) * 0.05)
+
+        self.batchnorm1 = nn.BatchNorm1d(self.batch_ph.size(1))
+        self.dropout_layer = nn.Dropout(p=0.5)
+        
+        fw_cells = [LayerNormLSTMCell(self.Params["num_hidden_units"], self.Params["num_hidden_units"]) for L in range(self.Params["num_layers"])]
+        bw_cells = [LayerNormLSTMCell(self.Params["num_hidden_units"], self.Params["num_hidden_units"]) for L in range(self.Params["num_layers"])]
+
+        self.rnn_dummy = LayerNormLSTMCell(input_size, hidden_size)
+        rnn_outputs, _ = torch.nn.utils.rnn.bidirectional_dynamic_rnn(
+                            fw_cells, bw_cells, batch_embedded, 
+                            sequence_length=self.seq_len_ph[GraphID], 
+                            dtype=torch.float32)
+
+        self.batchnorm2 = nn.BatchNorm1d(rnn_outputs.size()[1])
+
+    def forward(self,batch_embedded):
+        x = self.batchnorm1(batch_embedded)
+        x = self.dropout_layer(x)
+        x = self.rnn_dummy(x)
+        x = self.batchnorm2(x)
+        x, alphas = self.attention(x, self.Params["ATTENTION_SIZE"], GraphID, return_alphas=True)
+        x = self.dropout_layer(x)
+        embedding = torch.nn.functional.pad(x, (0, 1), value=1)
+
+
+    def attention(self, inputs, attention_size, GraphID, time_major=False, return_alphas=False):
+        
+        if isinstance(inputs, tuple):
+            # In case of Bi-RNN, concatenate the forward and the backward RNN outputs.
+            inputs = torch.cat(inputs, 2)
+        
+        if time_major:
+            # (T,B,D) => (B,T,D)
+            inputs = inputs.permute(1,0,2)
+        
+        hidden_size = inputs.shape[2]  # D value - hidden size of the RNN layer
+        
+        # Trainable parameters
+        w_omega = torch.randn(hidden_size, attention_size) * 0.05
+        b_omega = torch.randn(attention_size) * 0.05
+        u_omega = torch.randn(attention_size) * 0.05
+        
+        if torch.cuda.is_available():
+            w_omega = w_omega.cuda()
+            b_omega = b_omega.cuda()
+            u_omega = u_omega.cuda()
+        
+        with torch.no_grad():
+            # Applying fully connected layer with non-linear activation to each of the B*T timestamps;
+            # the shape of `v` is (B,T,D)*(D,A)=(B,T,A), where A=attention_size
+            v = torch.tanh(torch.einsum('ijk,kl->ijl', inputs, w_omega) + b_omega)
+            v = v.view(inputs.shape[0], inputs.shape[1], attention_size)
+        
+        # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
+        vu = torch.einsum('ijk,k->ij', v, u_omega)  # (B,T) shape
+        alphas = F.softmax(vu, dim=1)  # (B,T) shape
+        
+        # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
+        output = torch.einsum('ijk,ij->ik', inputs, alphas)
+        
+        if not return_alphas:
+            return output
         else:
-            raise Exception("Choose a valid RNN unit type.")
+            return output, alphas
 
-        #Create a layer
-        if L == self.Params["num_layers"] - 1:
-            single_cell = rnn_cell_type(self.Params["input_size"], self.Params["num_hidden_units"], bias=True, nonlinearity='linear')
-        else:
-            if self.Params["activation1"] == "None":
-                single_cell = rnn_cell_type(self.Params["input_size"], self.Params["num_hidden_units"], bias=True, nonlinearity='linear')
-            else:
-                ## Nonlinearity ne yapilacak ???
-                single_cell = rnn_cell_type(self.Params["input_size"], self.Params["num_hidden_units"], bias=True)
-
-        return single_cell
-
-
-    def _add_conv_layers(self, inputs):
-        """Adds convolution layers."""
-        convolved = inputs
-        for i in range(len(self.Params["num_of_Convs"])):
-            convolved_input = convolved
-            if self.Params["UseBatchNormalization1"]:
-                convolved_input = nn.BatchNorm1d(convolved_input.size(1)).to(convolved_input.device)(convolved_input)
-            # Add dropout layer if enabled and not first convolution layer.
-            if i > 0 and (self.Params["Dropout1"]):
-                convolved_input = nn.Dropout(self.Params["dropoutval"])(convolved_input)
-            convolved = nn.Conv1d(
-                in_channels=convolved_input.size(1),
-                out_channels=self.Params["num_of_Convs"][i],
-                kernel_size=5,
-                stride=1,
-                padding=2,
-                bias=True)(convolved_input)
-            convolved = F.relu(convolved)
-        return convolved
-
-
-
-
-
-    ######## I am not sure where these come from
-    def create_graph(self, i):
-        model = nn.Sequential(
-            nn.Linear(self.vocabnum, self.params["EMBEDDING_DIM"]),
-            nn.ReLU(),
-            nn.LSTM(input_size=self.params["EMBEDDING_DIM"], hidden_size=self.params["num_hidden_units"],
-                    num_layers=self.params["num_layers"], dropout=self.params["dropoutval"],
-                    bidirectional=self.params["Bidirectional"]),
-            nn.Linear(self.params["num_hidden_units"], self.ClassEmbeddingsize),
-            nn.Dropout(self.params["dropoutval"]),
-            nn.Linear(self.ClassEmbeddingsize, self.params["classnumber"])
-        )
-        return model
-
-    def initilize(self):
-        for i in range(self.params["NumofModels"]):
-            self.Models[i].train()
-            self.optimizer = optim
+    def softmax(self, X, theta = 1.0, axis = None):
+        """
+        Compute the softmax of each element along an axis of X.
+    
+        Parameters
+        ----------
+        X: ND-Array. Probably should be floats. 
+        theta (optional): float parameter, used as a multiplier
+            prior to exponentiation. Default = 1.0
+        axis (optional): axis to compute values along. Default is the 
+            first non-singleton axis.
+    
+        Returns an array the same size as X. The result will sum to 1
+        along the specified axis.
+        """
+    
+        # make X at least 2d
+        y = np.atleast_2d(X)
+    
+        # find axis
+        if axis is None:
+            axis = next(j[0] for j in enumerate(y.shape) if j[1] > 1)
+    
+        # multiply y against the theta parameter, 
+        y = y * float(theta)
+    
+        # subtract the max for numerical stability
+        y = y - np.expand_dims(np.max(y, axis = axis), axis)
+        
+        # exponentiate y
+        y = np.exp(y)
+    
+        # take the sum along the specified axis
+        ax_sum = np.expand_dims(np.sum(y, axis = axis), axis)
+    
+        # finally: divide elementwise
+        p = y / ax_sum
+    
+        # flatten if X was 1D
+        if len(X.shape) == 1: p = p.flatten()
+    
+        return p
