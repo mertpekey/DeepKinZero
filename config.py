@@ -1,5 +1,11 @@
 import os
 
+TRAIN_DATA = 'Dataset/Train_Phosphosite.txt'
+VAL_DATA = 'Dataset/Val_Phosphosite_MultiLabel.txt'
+VAL_KINASE_CANDIDATES = 'Dataset/Val_Candidate_Kinases.txt'
+TEST_DATA = 'Dataset/PhosPhoELM/PhoELMdata.txt'
+TEST_KINASE_CANDIDATES = 'Dataset/AllCandidates.txt'
+
 DATA_PATH = '/Dataset'
 KINASE_PATH = os.path.join(DATA_PATH,"AllKinases.txt")
 KINASE_EMBEDDING_PATH = os.path.join(DATA_PATH,"KinaseFeatures.txt")
