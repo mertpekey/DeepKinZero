@@ -1,6 +1,7 @@
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
+# X, ClassEmbedding, TrueClassIDX, TrainCandidateKinases
 class CustomDataset(Dataset):
     def __init__(self, DE, CE, TCI, CKE, is_train = True, FakeRand = False, shuffle = True):
         self.DE = DE
