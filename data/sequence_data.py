@@ -6,7 +6,7 @@ import config as config
 from amino_acids import AminoAcids
 
 
-class dataset:
+class all_seq_dataset:
     """
     This class holds the data of substrates and their sequences, these can be pairs of labeled instances or unlabeled.
     It also generates different data embeddings.
