@@ -79,13 +79,3 @@ def create_datasets():
     Phosphosite_Seq_Size = all_seq_dataset.Get_SeqSize(AminoAcidProperties=False, ProtVec=True)
 
     return train_dataset, val_dataset, test_dataset, Phosphosite_Seq_Size, KE, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValDS.KinaseUniProtIDs, ValCandidate_UniProtIDs
-
-
-    # Create Data Embedding model and train it over the training data
-    EndToEndmodel = EndToEndModel(vocabnum = Phosphosite_Seq_Size[1], seqlens = Phosphosite_Seq_Size[0], Params=ModelParams, LogDir = FolderName, ckpt_dir = DEFolder, WriteEmbeddingVis=False, ClassEmbeddingsize=KE.Embedding_size, seed=seed)
-
-    Train_accuracy, Train_Loss= EndToEndmodel.train(TrainSeqEmbedded, TrainDS.KinaseEmbeddings, TrainCandidateKinases=TrainDS.UniqueKinaseEmbeddings,TrueClassIDX= TrueClassIDX, epochcount=1, 
-                            ValDE= ValSeqEmbedded, ValCandidatekinaseEmbeddings=ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase=ValCandidateKE_to_Kinase, ValKinaseUniProtIDs=ValDS.KinaseUniProtIDs, ValKinaseEmbeddings=ValDS.KinaseEmbeddings, ValCandidateUniProtIDs=ValCandidate_UniProtIDs, Val_TrueClassIDX = Val_TrueClassIDX)
-
-
-    
