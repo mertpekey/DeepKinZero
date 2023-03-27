@@ -102,7 +102,7 @@ class KinaseEmbedding:
         self.GO_P_vec= GO_P_vec
         self.read_kinase_embedding()
         self.read_kinases()
-        self.Embedding_size = len(self.AllKinaseEmbeddings[0])
+        self.Embedding_size = len(self.AllKinaseEmbeddings[0]) # 727
         
     def read_kinases(self):
         """
@@ -111,9 +111,9 @@ class KinaseEmbedding:
         with open(config.KINASE_PATH, 'r') as AllKinasefilecsv:
             AllKinasefile= csv.reader(AllKinasefilecsv, delimiter='\t')
             for row in AllKinasefile:
-                newkinase = Kinase(row[0], row[1], row[2])
+                newkinase = Kinase(row[2], row[1], row[0])
                 self.allkinases.append(newkinase)
-                self.UniProtID_to_Kinase[row[2]] = newkinase
+                self.UniProtID_to_Kinase[row[0]] = newkinase
             self.AllKinaseEmbeddings, _ = self.create_class_embedding(self.allkinases)
 
     def make_onehot_encoded(self,classes):
@@ -212,7 +212,7 @@ class KinaseEmbedding:
             KinaseEmbeddings.append(kin.EmbeddedVector)
             self.KE_to_Kinase[tuple(kin.EmbeddedVector)] = kin
             
-        UniqueClassEmbedding = np.vstack({tuple(row) for row in KinaseEmbeddings})
+        UniqueClassEmbedding = np.vstack({tuple(row) for row in KinaseEmbeddings}) # (457,727)
         return KinaseEmbeddings, UniqueClassEmbedding
     
     def read_kinases_from_path(self, path):

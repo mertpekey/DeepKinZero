@@ -48,4 +48,4 @@ class AminoAcids:
             new_length += len(new_alphabets)
             new_dataset = np.append(new_dataset, changed_onehot_reshaped, axis=2)
 
-        return new_dataset, new_length
+        return new_dataset, new_length # (12901, 15, 37), (37)

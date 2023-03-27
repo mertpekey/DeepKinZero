@@ -16,7 +16,7 @@ import config as config
 
 def create_datasets():
     # Define Dataset
-    KE = KinaseEmbedding(Family = True, Group = True, Pathways = False, Kin2Vec=True, Enzymes = True)
+    KE = KinaseEmbedding(Family = True, Group = True, Pathway = False, Kin2Vec=True, Enzymes = True)
     TrainData = config.TRAIN_DATA
     TestData = ''
     ValData = config.VAL_DATA
@@ -30,9 +30,9 @@ def create_datasets():
     if TrainData != '':
         # Create the training dataset
         TrainDS = all_seq_dataset()
-        TrainDS.getdata(TrainData, KE, islabeled=True)
+        TrainDS.get_data(TrainData, KE, is_labeled=True)
         
-        ### Model Input (Train) ###
+        ### Model Input (Train) ### (12901,13,100)
         TrainSeqEmbedded = TrainDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True) # Get the sequence embeddings
         #Normalize Training data
         if NormalizeDE:
@@ -40,24 +40,32 @@ def create_datasets():
             SeqEmbedScaler = preprocessing.StandardScaler().fit(TrainSeqEmbeddedreshaped)
             TrainSeqEmbeddedreshaped = SeqEmbedScaler.transform(TrainSeqEmbeddedreshaped)
             TrainSeqEmbedded = TrainSeqEmbeddedreshaped.reshape(TrainSeqEmbedded.shape[0], TrainSeqEmbedded.shape[1], TrainSeqEmbedded.shape[2])
-        TrueClassIDX = FindTrueClassIndices(TrainDS.KinaseEmbeddings, TrainDS.UniqueKinaseEmbeddings)
+        TrueClassIDX = FindTrueClassIndices(TrainDS.KinaseEmbeddings, TrainDS.UniqueKinaseEmbeddings) # KinaseEmb (12901,727), Unique (214,727), TCI (12901)
         #### FINAL TRAIN DATASET ###
         train_dataset = CustomDataset(TrainSeqEmbedded, TrainDS.KinaseEmbeddings, TrueClassIDX, TrainDS.UniqueKinaseEmbeddings, is_train=True, FakeRand=False, shuffle=True)
 
     ### Val Data ###
     if ValData != '':
         ValDS = all_seq_dataset()
-        ValDS.getdata(ValData, KE, islabeled=True, MultiLabel=True)
-        ### Model Input (Val) ###
-        ValSeqEmbedded = ValDS.Get_Embedded_Seqs(AminoAcidProperties=False, ProtVec=True)
+        ValDS.get_data(ValData, KE, is_labeled=True, MultiLabel=True)
+
+        #new_val_kinase_embeddings = []
+        #for i in range(len(ValDS.KinaseEmbeddings)):
+        #    new_val_kinase_embeddings.append(ValDS.KinaseEmbeddings[i][0])
+        #ValDS.KinaseEmbeddings = np.array(new_val_kinase_embeddings)
+
+
+        ### Model Input (Val) ### (80, 13, 100)
+        ValSeqEmbedded = ValDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)
         if NormalizeDE:
             ValSeqEmbeddedreshaped = ValSeqEmbedded.reshape(ValSeqEmbedded.shape[0], ValSeqEmbedded.shape[1] * ValSeqEmbedded.shape[2])
             ValSeqEmbeddedreshaped = SeqEmbedScaler.transform(ValSeqEmbeddedreshaped)
             ValSeqEmbedded = ValSeqEmbeddedreshaped.reshape(ValSeqEmbedded.shape[0], ValSeqEmbedded.shape[1], ValSeqEmbedded.shape[2])
         
+        # (17,), (17,727), (17,), (17,), (17,)
         if ValKinaseCandidates != '':
-            ValCandidatekinases, ValCandidatekinaseEmbeddings, ValCandidateindices, ValCandidateKE_to_Kinase, ValCandidate_UniProtIDs = KE.readKinases(ValKinaseCandidates)
-            Val_TrueClassIDX = FindTrueClassIndices(ValDS.KinaseEmbeddings, ValCandidatekinaseEmbeddings, True)
+            ValCandidatekinases, ValCandidatekinaseEmbeddings, ValCandidateindices, ValCandidateKE_to_Kinase, ValCandidate_UniProtIDs = KE.read_kinases_from_path(ValKinaseCandidates)
+            Val_TrueClassIDX = FindTrueClassIndices(ValDS.KinaseEmbeddings, ValCandidatekinaseEmbeddings, True) # (80,), icindekiler 1 elemanlik list
             #### FINAL VAL DATASET ###
             val_dataset = CustomDataset(ValSeqEmbedded, ValDS.KinaseEmbeddings, Val_TrueClassIDX, ValDS.UniqueKinaseEmbeddings, is_train=False, FakeRand=False, shuffle=False)
 
@@ -67,7 +75,7 @@ def create_datasets():
         TestDS = all_seq_dataset()
         TestDS.getdata(TestData, KE, islabeled=TestisLabeled, MultiLabel=True)
         ### Model Input (Test) ###
-        TestSeqEmbedded = TestDS.Get_Embedded_Seqs(AminoAcidProperties=False, ProtVec=True)
+        TestSeqEmbedded = TestDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)
         if NormalizeDE:
             TestSeqEmbeddedreshaped = TestSeqEmbedded.reshape(TestSeqEmbedded.shape[0], TestSeqEmbedded.shape[1] * TestSeqEmbedded.shape[2])
             TestSeqEmbeddedreshaped = SeqEmbedScaler.transform(TestSeqEmbeddedreshaped)

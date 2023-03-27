@@ -3,7 +3,7 @@ import os
 import csv
 
 import config as config
-from amino_acids import AminoAcids
+from data.amino_acids import AminoAcids
 
 
 class all_seq_dataset:
@@ -123,7 +123,7 @@ class all_seq_dataset:
             if is_labeled:
                 self.create_onehot_class_embeddings()
 
-            self.protVecVectors = np.array(self.protVecVectors)
+            self.protVecVectors = np.array(self.protVecVectors) # (12901,13,100)
             self.set_onehot_encodedseq(self.Sequences)
             AA = AminoAcids()
             self.propertyVectors, _ = AA.get_onehot_allalphabet(self)
@@ -155,9 +155,9 @@ class all_seq_dataset:
                 self.Kin_One_Hot_Encoded.append(onehots)
                 self.KinaseEmbeddings.append(kinase_embeddings)
 
-        self.KinaseEmbeddings = np.array(self.KinaseEmbeddings)
-        self.Kin_One_Hot_Encoded = np.array(self.Kin_One_Hot_Encoded)
-        self.UniqueKinaseEmbeddings = np.array(self.UniqueKinaseEmbeddings)
+        self.KinaseEmbeddings = np.array(self.KinaseEmbeddings) # (12901,727)
+        self.Kin_One_Hot_Encoded = np.array(self.Kin_One_Hot_Encoded) # (12901, 214)
+        self.UniqueKinaseEmbeddings = np.array(self.UniqueKinaseEmbeddings) # (214, 727)
     
     def read_trigram_vectors(self):
         """
@@ -239,7 +239,7 @@ class all_seq_dataset:
             for c in seq:
                 intseq.append(self.AminoAcids.index(c))
             self.integer_encoded_seqs.append(intseq)
-        self.integer_encoded_seqs = np.array(self.integer_encoded_seqs)
+        self.integer_encoded_seqs = np.array(self.integer_encoded_seqs) # (12901, 15)
         self.seqBinaryVectors = self.get_onehot_encodedseq(self.AminoAcids, Sequences)
     
     def get_onehot_encodedseq(self, chars, Sequences):
