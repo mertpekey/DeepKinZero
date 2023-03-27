@@ -8,7 +8,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, classification_report
 
 from dataset import CustomDataset
-from model import MyModel
+from model import softmax
 from train_utils import GetAccuracyMultiLabel
 import config as config
 
@@ -18,8 +18,7 @@ class Trainer:
         self.model = model
         self.optimizer = optimizer
         self.device = device
-        self.lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99954, last_epoch=-1)
-        self.scheduler_step = 0
+        self.lr_scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.99954, last_epoch=-1)
         self._start = 0
         self._epochs_completed = 0
 
@@ -27,23 +26,23 @@ class Trainer:
     def train_step(self, train_dataset):
         self.model.train()
 
-        # Get Batch
-        batch_Xs, batch_CEs, batch_TCIs, self._start, self._epochs_completed = train_dataset.next_batch(self._start, self._epochs_completed, config.BATCH_SIZE)
+        # Get Batch (Change this with dataloader)
+        batch_Xs, batch_CEs, batch_TCIs, self._start, self._epochs_completed = train_dataset._next_batch(self._start, self._epochs_completed, config.BATCH_SIZE)
 
         # Zero the gradients
         self.optimizer.zero_grad()
 
         # Get model prediction
-        pred = self.model(batch_Xs)
+        pred = self.model(batch_Xs.float())
         
         # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)
-        logits = torch.matmul(pred, train_dataset.TrainCandidateKinases_with1.T)
+        logits = torch.matmul(pred, train_dataset.TrainCandidateKinases_with1.T.float()) # Output shape: (64,214)
         # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
-        maxlogits = torch.max(logits, dim=1, keepdim=True)[0]
+        maxlogits = torch.max(logits, dim=1, keepdim=True)[0] # Output Shape: (64,1)
         # Find the class index for each data point (the class with maximum F score)
-        outclassidx = torch.argmax(logits, dim=1)
+        outclassidx = torch.argmax(logits, dim=1) # Output Shape: (64)
         ## Softmax
-        denom = torch.sum(torch.exp(logits - maxlogits.unsqueeze(1)), dim=1)
+        denom = torch.sum(torch.exp(logits - maxlogits), dim=1)
         M = torch.sum(pred * batch_CEs, dim=1) - maxlogits.squeeze()
         rightprobs = torch.exp(M) / (denom + 1e-15) # Softmax
         ## Cross Entropy
@@ -56,9 +55,8 @@ class Trainer:
         
         # Update Weights
         self.optimizer.step()
-        self.lr_scheduler.step(self.scheduler_step)
 
-        return loss.item(), outclassidx.item(), batch_TCIs
+        return loss.item(), outclassidx, batch_TCIs
 
 
     def eval_step(self, val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val, binlabels_true_Val):
@@ -100,9 +98,9 @@ class Trainer:
 
             # Run through all batches
             for _ in range(num_batches):
-                self.scheduler_step += 1 ## BAK nerede kullanildigina
+                
                 loss, outclassidx, batch_TCIs = self.train_step(train_dataset)
-                accuracy = accuracy_score(batch_TCIs, outclassidx.item(), normalize=True)
+                accuracy = accuracy_score(batch_TCIs, outclassidx, normalize=True)
                 accuracy_train += accuracy
                 loss_train += loss / num_batches
             accuracy_train /= num_batches
@@ -110,11 +108,15 @@ class Trainer:
             print("train_loss: {:.3f}, train_acc: {:.3f}".format(loss_train, accuracy_train))
 
             if val_dataset.DE is not None:
-                Val_Evaluation, UniProtIDs, probabilities, mlb_Val = self.eval_step(self, val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val, binlabels_true_Val)
+                Val_Evaluation, UniProtIDs, probabilities, mlb_Val = self.eval_step(val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val, binlabels_true_Val)
                 print("Val_loss: {:.3f}, Val_acc: {:.3f}".format(Val_Evaluation["Loss"], Val_Evaluation["Accuracy"]))
-                return accuracy_train, loss_train, Val_Evaluation, UniProtIDs, probabilities, mlb_Val, binlabels_true_Val
-            else:
-                return accuracy_train, loss_train, None, None, None, None, None
+            
+            self.lr_scheduler.step()
+
+        if val_dataset.DE is not None:
+            return accuracy_train, loss_train, Val_Evaluation, UniProtIDs, probabilities, mlb_Val, binlabels_true_Val
+        else:
+            return accuracy_train, loss_train, None, None, None, None, None
 
 
     def predict(self,  DataEmbedding, TestCandidateKinases, CandidateKE_to_Kinase):
@@ -123,26 +125,29 @@ class Trainer:
         allUniProtIDs = []
         allprobs = []
 
-        TestCandidateKinases_with1 = np.c_[ TestCandidateKinases, np.ones(len(TestCandidateKinases)) ]
-        seq_len = [self.seq_lens] * len(DataEmbedding)
-        pred = self.model(DataEmbedding)
+        TestCandidateKinases_with1 = torch.from_numpy(np.c_[ TestCandidateKinases, np.ones(len(TestCandidateKinases))])
+        # seq_len = [self.seq_lens] * len(DataEmbedding)
 
-        # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)
-        logits = torch.matmul(pred, TestCandidateKinases_with1)
-        # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
-        maxlogits = torch.max(logits, dim=1, keepdim=True)[0]
-        # Find the class index for each data point (the class with maximum F score)
-        outclassidx = torch.argmax(logits, dim=1)
-                
-        classes = TestCandidateKinases[outclassidx]
-        # get UniProtIDs for predicted classes and return them
-        UniProtIDs =[]
-        for KE in classes:
-            UniProtIDs.append(CandidateKE_to_Kinase[tuple(KE)])
-        UniProtIDs = np.array(UniProtIDs)
-        allUniProtIDs.append(UniProtIDs)
-        probabilities = self.softmax(logits, axis =1)
-        allprobs.append(probabilities)
+        with torch.no_grad():
+
+            pred = self.model(DataEmbedding.float())
+
+            # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)
+            logits = torch.matmul(pred, TestCandidateKinases_with1.T.float())
+            # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
+            # maxlogits = torch.max(logits, dim=1, keepdim=True)[0]
+            # Find the class index for each data point (the class with maximum F score)
+            outclassidx = torch.argmax(logits, dim=1)
+                    
+            classes = TestCandidateKinases[outclassidx]
+            # get UniProtIDs for predicted classes and return them
+            UniProtIDs =[]
+            for KE in classes:
+                UniProtIDs.append(CandidateKE_to_Kinase[tuple(KE)])
+            UniProtIDs = np.array(UniProtIDs)
+            allUniProtIDs.append(UniProtIDs) # Belki silinebilir
+            probabilities = softmax(logits, axis =1)
+        allprobs.append(probabilities) # Bu da belki silinebilir
             
         return allUniProtIDs, allprobs
 
