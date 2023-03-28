@@ -1,15 +1,9 @@
-import torch
-import numpy as np
-from trainer import Trainer
 from dataset import CustomDataset
 from data.sequence_data import all_seq_dataset
-from model import  MyModel
 
-from train_utils import ensemble, GetAccuracyMultiLabel
 from utils import FindTrueClassIndices
 from data.kinase_embeddings import KinaseEmbedding
 
-from sklearn.metrics import classification_report
 from sklearn import preprocessing
 import config as config
 
@@ -18,11 +12,11 @@ def create_datasets():
     # Define Dataset
     KE = KinaseEmbedding(Family = True, Group = True, Pathway = False, Kin2Vec=True, Enzymes = True)
     TrainData = config.TRAIN_DATA
-    TestData = ''
+    TestData = config.TEST_DATA
     ValData = config.VAL_DATA
-    TestKinaseCandidates = ''
+    TestKinaseCandidates = config.TEST_KINASE_CANDIDATES
     ValKinaseCandidates = config.VAL_KINASE_CANDIDATES
-    TestisLabeled = ''
+    TestisLabeled = config.TEST_IS_LABELED
     train_dataset, val_dataset, test_dataset = None, None, None
     NormalizeDE = True
 
@@ -48,12 +42,6 @@ def create_datasets():
     if ValData != '':
         ValDS = all_seq_dataset()
         ValDS.get_data(ValData, KE, is_labeled=True, MultiLabel=True)
-
-        #new_val_kinase_embeddings = []
-        #for i in range(len(ValDS.KinaseEmbeddings)):
-        #    new_val_kinase_embeddings.append(ValDS.KinaseEmbeddings[i][0])
-        #ValDS.KinaseEmbeddings = np.array(new_val_kinase_embeddings)
-
 
         ### Model Input (Val) ### (80, 13, 100)
         ValSeqEmbedded = ValDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)

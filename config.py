@@ -1,10 +1,9 @@
-import os
-
 TRAIN_DATA = 'Dataset/Train_Phosphosite.txt'
 VAL_DATA = 'Dataset/Val_Phosphosite_MultiLabel.txt'
 VAL_KINASE_CANDIDATES = 'Dataset/Val_Candidate_Kinases.txt'
 TEST_DATA = 'Dataset/PhosPhoELM/PhoELMdata.txt'
 TEST_KINASE_CANDIDATES = 'Dataset/AllCandidates.txt'
+TEST_IS_LABELED = True
 
 DATA_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/'
 KINASE_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'

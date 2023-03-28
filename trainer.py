@@ -3,13 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 
 import numpy as np
-import os
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, classification_report
 
-from dataset import CustomDataset
 from model import softmax
-from train_utils import GetAccuracyMultiLabel
+from utils import GetAccuracyMultiLabel
 import config as config
 
 

@@ -1,9 +1,8 @@
 import torch
 import numpy as np
 from trainer import Trainer
-from dataset import CustomDataset
 from model import  MyModel
-from train_utils import ensemble, GetAccuracyMultiLabel
+from utils import ensemble, GetAccuracyMultiLabel
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
 import config as config
@@ -37,7 +36,7 @@ trainers = [
 AllAccuracyTrains = np.zeros(config.NUM_OF_MODELS)
 AllAccuracyLoss = np.zeros(config.NUM_OF_MODELS)
 AllAccuracyVals = np.zeros(config.NUM_OF_MODELS)
-AllAccuracyValProbs = np.zeros(config.NUM_OF_MODELS)
+AllAccuracyValProbs = [] # np.empty(config.NUM_OF_MODELS)
 
 
 # Train the models
@@ -46,7 +45,7 @@ for i, model in enumerate(models):
     AllAccuracyTrains[i] = accuracy_train
     AllAccuracyLoss[i] = loss_train
     AllAccuracyVals[i] = Val_Evaluation["Accuracy"]
-    AllAccuracyValProbs[i] = ValProbs
+    AllAccuracyValProbs.append(ValProbs) # AllAccuracyValProbs[i] = ValProbs
 
 # Ensemble the results (Train)
 accuracy_train_ensemble = np.mean(AllAccuracyTrains)
@@ -60,13 +59,14 @@ if Val_Evaluation is not None:
     Val_Evaluation = GetAccuracyMultiLabel(ValUniProtIDs, Valprobabilities, KinaseUniProtIDs, val_dataset.TCI)
     predlabels = [[label] for label in ValUniProtIDs]
     binlabels_pred = mlb_val.transform(predlabels)
-    print(classification_report(binlabels_true_Val, binlabels_pred, target_names=mlb_val.classes_) + '\n\n\n' + 'Acccuracy_Val: {}  Loss_Val: {} Top5Accuracy: {} Top10Accuracy: {}'.format(Val_Evaluation["Accuracy"], Val_Evaluation["Loss"], Val_Evaluation["Top5Acc"], Val_Evaluation["Top10Acc"]))
+    print(classification_report(binlabels_true_Val, binlabels_pred, target_names=mlb_val.classes_) + '\n\n\n' + 'Acccuracy_Val: {}  Loss_Val: {} Top3Accuracy: {} Top5Accuracy: {} Top10Accuracy: {}'.format(Val_Evaluation["Accuracy"], Val_Evaluation["Loss"], Val_Evaluation["Top3Acc"], Val_Evaluation["Top5Acc"], Val_Evaluation["Top10Acc"]))
 
-#if TestisLabeled:
-    #print("TrainLoss = ", loss_train_ensemble, "ValLoss = ", Val_Evaluation["Loss"], "TestLoss = ", Test_Evaluations["Loss"])
-    #print("TrainAccuracy = ", accuracy_train_ensemble, "Valaccuracy = ", Val_Evaluation["Accuracy"], "TestAccuracy = ", Test_Evaluations["Accuracy"])
+# if config.TEST_IS_LABELED:
+#     print("TrainLoss = ", loss_train_ensemble, "ValLoss = ", Val_Evaluation["Loss"], "TestLoss = ", Test_Evaluations["Loss"])
+#     print("TrainAccuracy = ", accuracy_train_ensemble, "Valaccuracy = ", Val_Evaluation["Accuracy"], "TestAccuracy = ", Test_Evaluations["Accuracy"])
 
-#if TestData != '':
-    #UniProtIDs, probabilities = EndToEndmodel.predict(TestSeqEmbedded, CandidatekinaseEmbeddings, CandidateKE_to_Kinase)
-    #UniProtIDs, probabilities = ensemble(UniProtIDs, probabilities, Candidate_UniProtIDs)
-    #Write_predictions(OutPath, probabilities, TestDS.Sub_IDs, TestDS.Sequences, TestDS.Residues, Candidatekinases, Candidate_UniProtIDs, top_n=Top_n, sub_ID_has_original_rows=False)
+# if config.TEST_DATA != '':
+#     for trainer in trainers:
+#     UniProtIDs, probabilities = trainer.predict(TestSeqEmbedded, CandidatekinaseEmbeddings, CandidateKE_to_Kinase)
+#     UniProtIDs, probabilities = ensemble(UniProtIDs, probabilities, Candidate_UniProtIDs)
+#     Write_predictions(OutPath, probabilities, TestDS.Sub_IDs, TestDS.Sequences, TestDS.Residues, Candidatekinases, Candidate_UniProtIDs, top_n=Top_n, sub_ID_has_original_rows=False)
