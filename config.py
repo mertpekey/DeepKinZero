@@ -5,6 +5,7 @@ TEST_DATA = 'Dataset/PhosPhoELM/PhoELMdata.txt'
 TEST_KINASE_CANDIDATES = 'Dataset/AllCandidates.txt'
 TEST_IS_LABELED = True
 
+DEVICE = 'cpu' #cuda
 DATA_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/'
 KINASE_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
 KINASE_EMBEDDING_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
