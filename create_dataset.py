@@ -8,75 +8,54 @@ from sklearn import preprocessing
 import config as config
 
 
-def create_datasets():
+def create_datasets(data_path, candidate_path = None, mode='train', is_labeled=True, normalize_embedding = True, embed_scaler=None):
     # Define Dataset
     KE = KinaseEmbedding(Family = True, Group = True, Pathway = False, Kin2Vec=True, Enzymes = True)
-    TrainData = config.TRAIN_DATA
-    TestData = config.TEST_DATA
-    ValData = config.VAL_DATA
-    TestKinaseCandidates = config.TEST_KINASE_CANDIDATES
-    ValKinaseCandidates = config.VAL_KINASE_CANDIDATES
-    TestisLabeled = config.TEST_IS_LABELED
-    train_dataset, val_dataset, test_dataset = None, None, None
-    NormalizeDE = True
 
-    ### Train Data ###
-    if TrainData != '':
+    if mode == 'train':
         # Create the training dataset
-        TrainDS = all_seq_dataset()
-        TrainDS.get_data(TrainData, KE, is_labeled=True)
+        train_ds = all_seq_dataset()
+        train_ds.get_data(data_path, KE, is_labeled=is_labeled)
         
         ### Model Input (Train) ### (12901,13,100)
-        TrainSeqEmbedded = TrainDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True) # Get the sequence embeddings
+        phospho_embedded = train_ds.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True) # Get the sequence embeddings
+        
         #Normalize Training data
-        if NormalizeDE:
-            TrainSeqEmbeddedreshaped = TrainSeqEmbedded.reshape(TrainSeqEmbedded.shape[0], TrainSeqEmbedded.shape[1] * TrainSeqEmbedded.shape[2])
-            SeqEmbedScaler = preprocessing.StandardScaler().fit(TrainSeqEmbeddedreshaped)
-            TrainSeqEmbeddedreshaped = SeqEmbedScaler.transform(TrainSeqEmbeddedreshaped)
-            TrainSeqEmbedded = TrainSeqEmbeddedreshaped.reshape(TrainSeqEmbedded.shape[0], TrainSeqEmbedded.shape[1], TrainSeqEmbedded.shape[2])
-        TrueClassIDX = FindTrueClassIndices(TrainDS.KinaseEmbeddings, TrainDS.UniqueKinaseEmbeddings) # KinaseEmb (12901,727), Unique (214,727), TCI (12901)
+        if normalize_embedding:
+            phospho_embedded_reshape = phospho_embedded.reshape(phospho_embedded.shape[0], phospho_embedded.shape[1] * phospho_embedded.shape[2])
+            embed_scaler = preprocessing.StandardScaler().fit(phospho_embedded_reshape)
+            phospho_embedded_reshape = embed_scaler.transform(phospho_embedded_reshape)
+            phospho_embedded = phospho_embedded_reshape.reshape(phospho_embedded.shape[0], phospho_embedded.shape[1], phospho_embedded.shape[2])
+        labels = FindTrueClassIndices(train_ds.KinaseEmbeddings, train_ds.UniqueKinaseEmbeddings) # KinaseEmb (12901,727), Unique (214,727), TCI (12901)
         #### FINAL TRAIN DATASET ###
-        train_dataset = CustomDataset(TrainSeqEmbedded, TrainDS.KinaseEmbeddings, TrueClassIDX, TrainDS.UniqueKinaseEmbeddings, is_train=True, FakeRand=False, shuffle=True)
+        dataset = CustomDataset(phospho_embedded, train_ds.KinaseEmbeddings, labels, train_ds.UniqueKinaseEmbeddings, is_train=True, FakeRand=False, shuffle=True)
 
-    ### Val Data ###
-    if ValData != '':
-        ValDS = all_seq_dataset()
-        ValDS.get_data(ValData, KE, is_labeled=True, MultiLabel=True)
+    elif mode in ['val', 'test']:
+        val_test_ds =  all_seq_dataset()
+        val_test_ds.get_data(data_path, KE, is_labeled=is_labeled, MultiLabel=True)
 
         ### Model Input (Val) ### (80, 13, 100)
-        ValSeqEmbedded = ValDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)
-        if NormalizeDE:
-            ValSeqEmbeddedreshaped = ValSeqEmbedded.reshape(ValSeqEmbedded.shape[0], ValSeqEmbedded.shape[1] * ValSeqEmbedded.shape[2])
-            ValSeqEmbeddedreshaped = SeqEmbedScaler.transform(ValSeqEmbeddedreshaped)
-            ValSeqEmbedded = ValSeqEmbeddedreshaped.reshape(ValSeqEmbedded.shape[0], ValSeqEmbedded.shape[1], ValSeqEmbedded.shape[2])
+        phospho_embedded = val_test_ds.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)
+
+        if normalize_embedding:
+            phospho_embedded_reshape = phospho_embedded.reshape(phospho_embedded.shape[0], phospho_embedded.shape[1] * phospho_embedded.shape[2])
+            phospho_embedded_reshape = embed_scaler.transform(phospho_embedded_reshape)
+            phospho_embedded = phospho_embedded_reshape.reshape(phospho_embedded.shape[0], phospho_embedded.shape[1], phospho_embedded.shape[2])
         
         # (17,), (17,727), (17,), (17,), (17,)
-        if ValKinaseCandidates != '':
-            ValCandidatekinases, ValCandidatekinaseEmbeddings, ValCandidateindices, ValCandidateKE_to_Kinase, ValCandidate_UniProtIDs = KE.read_kinases_from_path(ValKinaseCandidates)
-            Val_TrueClassIDX = FindTrueClassIndices(ValDS.KinaseEmbeddings, ValCandidatekinaseEmbeddings, True) # (80,), icindekiler 1 elemanlik list
-            #### FINAL VAL DATASET ###
-            val_dataset = CustomDataset(ValSeqEmbedded, ValDS.KinaseEmbeddings, Val_TrueClassIDX, ValDS.UniqueKinaseEmbeddings, is_train=False, FakeRand=False, shuffle=False)
+        if candidate_path is not None:
+            
+            candidate_kinase, candidate_kinase_embedding, candidate_indices, candidate_ke_to_kinase, candidate_uniprotid = KE.read_kinases_from_path(candidate_path)
+            
+            if is_labeled:
+                val_labels = FindTrueClassIndices(val_test_ds.KinaseEmbeddings, candidate_kinase_embedding, True) # (80,), icindekiler 1 elemanlik list
+                #### FINAL VAL DATASET ###
+                dataset = CustomDataset(phospho_embedded, val_test_ds.KinaseEmbeddings, val_labels, val_test_ds.UniqueKinaseEmbeddings, is_train=False, FakeRand=False, shuffle=False)
 
 
-    ### Test Data ###
-    if TestData != '':
-        TestDS = all_seq_dataset()
-        TestDS.getdata(TestData, KE, islabeled=TestisLabeled, MultiLabel=True)
-        ### Model Input (Test) ###
-        TestSeqEmbedded = TestDS.get_embedded_seqs(AminoAcidProperties=False, ProtVec=True)
-        if NormalizeDE:
-            TestSeqEmbeddedreshaped = TestSeqEmbedded.reshape(TestSeqEmbedded.shape[0], TestSeqEmbedded.shape[1] * TestSeqEmbedded.shape[2])
-            TestSeqEmbeddedreshaped = SeqEmbedScaler.transform(TestSeqEmbeddedreshaped)
-            TestSeqEmbedded = TestSeqEmbeddedreshaped.reshape(TestSeqEmbedded.shape[0], TestSeqEmbedded.shape[1], TestSeqEmbedded.shape[2])
-        
-        if TestKinaseCandidates != '':
-            Candidatekinases, CandidatekinaseEmbeddings, Candidateindices, CandidateKE_to_Kinase, Candidate_UniProtIDs = KE.readKinases(TestKinaseCandidates)
-            if TestisLabeled:
-                Test_TrueClassIDX = FindTrueClassIndices(TestDS.KinaseEmbeddings, CandidatekinaseEmbeddings, True)
-                #### FINAL TEST DATASET ###
-                test_dataset = CustomDataset(TestSeqEmbedded, TestDS.KinaseEmbeddings, Test_TrueClassIDX, TestDS.UniqueKinaseEmbeddings, is_train=False, FakeRand=False, shuffle=False)
-    
+    phosphosite_seq_size = all_seq_dataset.Get_SeqSize(AminoAcidProperties=False, ProtVec=True)
 
-    Phosphosite_Seq_Size = all_seq_dataset.Get_SeqSize(AminoAcidProperties=False, ProtVec=True)
-
-    return train_dataset, val_dataset, test_dataset, Phosphosite_Seq_Size, KE, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValDS.KinaseUniProtIDs, ValCandidate_UniProtIDs
+    if mode == 'train':
+        return dataset, phosphosite_seq_size, embed_scaler
+    elif mode in ['val', 'test']:
+        return dataset, phosphosite_seq_size, KE, candidate_kinase_embedding, candidate_ke_to_kinase, val_test_ds.KinaseUniProtIDs, candidate_uniprotid
