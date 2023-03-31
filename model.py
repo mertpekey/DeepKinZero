@@ -42,7 +42,7 @@ class MyModel(nn.Module):
         x = x.permute(1,2,0) # (l, n, c) -> (n, c, l)
         x = self.batchnorm2(x)
         x = x.permute(0,2,1) # (n, c, l) -> (n, l, c)
-        x, alphas = self.attention(x)
+        x, _ = self.attention(x)
         x = self.dropout_layer(x.unsqueeze(2)).squeeze(2) # (n, c, l)
         embedding = torch.nn.functional.pad(x, (0, 1), value=1)
         Matmul = torch.matmul(embedding, self.W)

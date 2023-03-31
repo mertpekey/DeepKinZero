@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -20,6 +21,9 @@ class Trainer:
         self._start = 0
         self._epochs_completed = 0
 
+        # Set model device
+        self.model.to(self.device)
+
 
     def train_step(self, train_dataset):
         self.model.train()
@@ -27,6 +31,11 @@ class Trainer:
         # Get Batch (Change this with dataloader)
         batch_Xs, batch_CEs, batch_TCIs, self._start, self._epochs_completed = train_dataset._next_batch(self._start, self._epochs_completed, config.BATCH_SIZE)
 
+        # Set device
+        batch_Xs.to(self.device)
+        batch_CEs.to(self.device)
+        batch_TCIs.to(self.device)
+        train_dataset.TrainCandidateKinases_with1.to(self.device)
         # Zero the gradients
         self.optimizer.zero_grad()
 
@@ -80,6 +89,11 @@ class Trainer:
         self.training_epochs = epochcount
         self.num_examples = len(train_dataset)
 
+        # Create Dataloaders
+        #self.train_dataloader = DataLoader(train_dataset, batch_size = config.BATCH_SIZE, shuffle = True)
+        #val_dataloader = DataLoader(val_dataset, batch_size = config.BATCH_SIZE, shuffle = False)
+        #test_dataloader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE, shuffle = False)
+
         print("Number of Train data: {} Number of Val data: {}".format(len(train_dataset.DE), len(val_dataset.DE)))
         
         if ValKinaseUniProtIDs is not None:
@@ -124,6 +138,9 @@ class Trainer:
         allprobs = []
 
         TestCandidateKinases_with1 = torch.from_numpy(np.c_[ TestCandidateKinases, np.ones(len(TestCandidateKinases))])
+        
+        DataEmbedding.to(self.device)
+        TestCandidateKinases_with1.to(self.device)
         # seq_len = [self.seq_lens] * len(DataEmbedding)
 
         with torch.no_grad():
