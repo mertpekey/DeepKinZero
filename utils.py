@@ -51,6 +51,14 @@ def GetAccuracyMultiLabel(Y_Pred, Probabilities, Y_True, TrueClassIndices, eps=1
         return Evaluations
 
 
+def get_eval_predictions(UniProtIDs, probabilities, ValKinaseUniProtIDs, y, mlb_Val):
+    
+    predlabels = [[label] for label in UniProtIDs]
+    binlabels_pred = mlb_Val.transform(predlabels)
+    Val_Evaluation = GetAccuracyMultiLabel(UniProtIDs, probabilities, ValKinaseUniProtIDs, y)
+
+    return Val_Evaluation, binlabels_pred
+
 def FindTrueClassIndices(ClassEmbeddings, CandidateKinases, Multilabel = False):
     """
     Find the indices of the true classes in the candidate class embeddings

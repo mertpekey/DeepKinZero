@@ -2,22 +2,30 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import time
 
 import config as config
 
 # rnnlib package for Bidirectional Layer Norm LSTM
 # https://github.com/daehwannam/pytorch-rnn-library
-from rnnlib.seq import LayerNormLSTM
+from rnnlib.seq import LayerNormLSTM, RNNFrame
 
 
-class MyModel(nn.Module):
+class Bi_RNN(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
-        super(MyModel, self).__init__()
+        super(Bi_RNN, self).__init__()
 
         self.vocabnum = vocabnum
         self.seq_lens = seq_lens
         self.ClassEmbeddingsize = ClassEmbeddingsize
         self.num_directions = 2 # Bidirectional
+
+        self.rnn_cells = [
+        [nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS),
+        nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS)],  # 1st bidirectional RNN layer
+        [nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS),
+        nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS)]  # 2nd bidirectional RNN layer
+]
 
         # (100, 728) # In paper, author mentions W is uniformly distributed
         self.W = torch.nn.Parameter(torch.rand(config.NUM_HIDDEN_UNITS * 2 + 1, self.ClassEmbeddingsize + 1) * 0.05)
@@ -27,6 +35,7 @@ class MyModel(nn.Module):
         self.batchnorm1 = nn.BatchNorm1d(self.vocabnum)
         self.dropout_layer = nn.Dropout1d(p=0.5)
         
+        self.bi_rnn = RNNFrame(self.rnn_cells, dropout=0, bidirectional=True)
         self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
                              bidirectional=True, layer_norm_enabled=True)
 
@@ -38,7 +47,10 @@ class MyModel(nn.Module):
         x = self.batchnorm1(batch_embedded)
         x = self.dropout_layer(x)
         x = x.permute(2,0,1) # (n, c, l) -> (l, n, c)
-        x, _ = self.bi_lstm(x, None)
+        # 13,64,100
+        x, _ = self.bi_rnn(x,None)
+        #x, _ = self.bi_lstm(x, None)
+        # 13,64,1024
         x = x.permute(1,2,0) # (l, n, c) -> (n, c, l)
         x = self.batchnorm2(x)
         x = x.permute(0,2,1) # (n, c, l) -> (n, l, c)
@@ -46,6 +58,7 @@ class MyModel(nn.Module):
         x = self.dropout_layer(x.unsqueeze(2)).squeeze(2) # (n, c, l)
         embedding = torch.nn.functional.pad(x, (0, 1), value=1)
         Matmul = torch.matmul(embedding, self.W)
+
         return Matmul
 
 

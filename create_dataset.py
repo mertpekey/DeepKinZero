@@ -1,4 +1,4 @@
-from dataset import CustomDataset
+from dataset import DKZ_Dataset
 from data.sequence_data import all_seq_dataset
 
 from utils import FindTrueClassIndices
@@ -28,7 +28,7 @@ def create_datasets(data_path, candidate_path = None, mode='train', is_labeled=T
             phospho_embedded = phospho_embedded_reshape.reshape(phospho_embedded.shape[0], phospho_embedded.shape[1], phospho_embedded.shape[2])
         labels = FindTrueClassIndices(train_ds.KinaseEmbeddings, train_ds.UniqueKinaseEmbeddings) # KinaseEmb (12901,727), Unique (214,727), TCI (12901)
         #### FINAL TRAIN DATASET ###
-        dataset = CustomDataset(phospho_embedded, train_ds.KinaseEmbeddings, labels, train_ds.UniqueKinaseEmbeddings, is_train=True, FakeRand=False, shuffle=True)
+        dataset = DKZ_Dataset(phospho_embedded, train_ds.KinaseEmbeddings, labels, train_ds.UniqueKinaseEmbeddings, is_train=True)
 
     elif mode in ['val', 'test']:
         val_test_ds =  all_seq_dataset()
@@ -50,7 +50,7 @@ def create_datasets(data_path, candidate_path = None, mode='train', is_labeled=T
             if is_labeled:
                 val_labels = FindTrueClassIndices(val_test_ds.KinaseEmbeddings, candidate_kinase_embedding, True) # (80,), icindekiler 1 elemanlik list
                 #### FINAL VAL DATASET ###
-                dataset = CustomDataset(phospho_embedded, val_test_ds.KinaseEmbeddings, val_labels, val_test_ds.UniqueKinaseEmbeddings, is_train=False, FakeRand=False, shuffle=False)
+                dataset = DKZ_Dataset(phospho_embedded, val_test_ds.KinaseEmbeddings, val_labels, val_test_ds.UniqueKinaseEmbeddings, is_train=False)
 
 
     phosphosite_seq_size = all_seq_dataset.Get_SeqSize(AminoAcidProperties=False, ProtVec=True)

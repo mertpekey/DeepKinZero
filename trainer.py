@@ -3,12 +3,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+import time
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, classification_report
 
 from model import softmax
-from utils import GetAccuracyMultiLabel
+from utils import get_eval_predictions
 import config as config
 
 
@@ -18,156 +19,153 @@ class Trainer:
         self.optimizer = optimizer
         self.device = device
         self.lr_scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.99954, last_epoch=-1)
-        self._start = 0
-        self._epochs_completed = 0
 
         # Set model device
         self.model.to(self.device)
 
 
-    def train_step(self, train_dataset):
+    def train_step(self, train_dataloader):
+        
+        # Set model to training mode
         self.model.train()
 
-        # Get Batch (Change this with dataloader)
-        batch_Xs, batch_CEs, batch_TCIs, self._start, self._epochs_completed = train_dataset._next_batch(self._start, self._epochs_completed, config.BATCH_SIZE)
+        epoch_loss, epoch_accuracy = 0, 0
 
-        # Set device
-        batch_Xs.to(self.device)
-        batch_CEs.to(self.device)
-        batch_TCIs.to(self.device)
-        train_dataset.TrainCandidateKinases_with1.to(self.device)
-        # Zero the gradients
-        self.optimizer.zero_grad()
+        for batch, (X,CE,y) in enumerate(train_dataloader):
+            X = X.to(self.device)
+            CE = CE.to(self.device)
+            y = y.to(self.device)
+            ### Train candidate kinase device datasete ekle
 
-        # Get model prediction
-        pred = self.model(batch_Xs.float())
+            # Reset Gradients
+            self.optimizer.zero_grad()
+
+            # Prediction
+            y_pred = self.model(X) # 0.22sn
+
+            # Calculation Loss
+            loss, outclassidx = self.criterion(y_pred, CE)
+            
+            # Calculating Gradients
+            loss.backward() # 0.44 sn
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), config.CLIP_GRADIENTS)
+            
+            # Update Weights
+            self.optimizer.step()
+            
+            # Calculating Performance Metrics
+            epoch_accuracy += accuracy_score(y, outclassidx, normalize=True)
+            epoch_loss += loss.item()
+
+        epoch_loss /= len(train_dataloader)
+        epoch_accuracy /= len(train_dataloader)
+
+        return epoch_loss, epoch_accuracy
+
+
+    def eval_step(self, val_dataloader, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val):
         
-        # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)
-        logits = torch.matmul(pred, train_dataset.TrainCandidateKinases_with1.T.float()) # Output shape: (64,214)
+        self.model.eval()
+        
+        #X, CE, y = next(iter(val_dataloader))
+        X, CE, y = val_dataloader.DE, val_dataloader.ClassEmbedding_with1, val_dataloader.TCI
+        
+        TestCandidateKinases_with1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).float()
+        
+        X.to(self.device)
+        TestCandidateKinases_with1.to(self.device)
+
+        allUniProtIDs = []
+        allprobs = []
+
+        with torch.no_grad():
+
+            pred = self.model(X)
+
+            logits = torch.matmul(pred, TestCandidateKinases_with1.T)
+            outclassidx = torch.argmax(logits, dim=1) 
+            classes = ValCandidatekinaseEmbeddings[outclassidx]
+            probabilities = softmax(logits, axis =1)
+
+        # get UniProtIDs for predicted classes and return them
+        UniProtIDs =[]
+        for c in classes:
+            UniProtIDs.append(ValCandidateKE_to_Kinase[tuple(c)])
+        UniProtIDs = np.array(UniProtIDs)
+
+        Val_Evaluation, binlabels_pred = get_eval_predictions(UniProtIDs, probabilities, ValKinaseUniProtIDs, y, mlb_Val)
+
+        return Val_Evaluation, UniProtIDs, probabilities, binlabels_pred
+    
+
+    def train(self,
+               train_dataset,
+               val_dataset, 
+               num_epochs,
+               ValCandidatekinaseEmbeddings=None,
+               ValCandidateKE_to_Kinase=None, 
+               ValKinaseUniProtIDs=None):
+        
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+
+        train_dataloader = DataLoader(train_dataset, batch_size = config.BATCH_SIZE, shuffle = True)
+        #if val_dataset is not None:
+            #val_dataloader = DataLoader(val_dataset, batch_size = len(val_dataset), shuffle = False)
+
+        if ValKinaseUniProtIDs is not None:
+            mlb_Val = MultiLabelBinarizer()
+            binlabels_true_Val = mlb_Val.fit_transform(ValKinaseUniProtIDs)
+
+        epochs_start_time = time.time()
+
+        for epoch in range(num_epochs):
+            print("===================================\nepoch: {}\t".format(epoch))
+            
+            train_step_start_time = time.time()
+            train_loss, train_acc = self.train_step(train_dataloader)
+            print(f'Train Step takes {time.time() - train_step_start_time} seconds')
+
+            if val_dataset is not None:
+                Val_Evaluation, UniProtIDs, probabilities, binlabels_pred = self.eval_step(val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val)
+            
+            self.lr_scheduler.step()
+
+            # Epoch results
+            print("train_loss: {:.3f}, train_acc: {:.3f}".format(train_loss, train_acc))
+            
+            if val_dataset is not None:
+                print(classification_report(binlabels_true_Val, binlabels_pred, target_names=mlb_Val.classes_) + '\n\n')
+                print('Acccuracy_Val: {}  Loss_Val: {} Top5Accuracy: {} Top10Accuracy: {}'.format(Val_Evaluation["Accuracy"], Val_Evaluation["Loss"], Val_Evaluation["Top5Acc"], Val_Evaluation["Top10Acc"]))
+
+
+        print(f'Epochs time for 1 model: {time.time() - epochs_start_time} seconds')
+
+        if val_dataset is not None:
+            return train_acc, train_loss, Val_Evaluation, UniProtIDs, probabilities, mlb_Val, binlabels_true_Val
+        else:
+            return train_acc, train_loss, None, None, None, None, None 
+
+
+    def criterion(self, y_pred, CE):
+
+        # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)        
+        logits = torch.matmul(y_pred, self.train_dataset.TrainCandidateKinases_with1.T) # Output shape: (64,214)
         # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
         maxlogits = torch.max(logits, dim=1, keepdim=True)[0] # Output Shape: (64,1)
         # Find the class index for each data point (the class with maximum F score)
         outclassidx = torch.argmax(logits, dim=1) # Output Shape: (64)
         ## Softmax
         denom = torch.sum(torch.exp(logits - maxlogits), dim=1)
-        M = torch.sum(pred * batch_CEs, dim=1) - maxlogits.squeeze()
+        M = torch.sum(y_pred * CE, dim=1) - maxlogits.squeeze()
         rightprobs = torch.exp(M) / (denom + 1e-15) # Softmax
         ## Cross Entropy
         P = torch.clamp(rightprobs, min=1e-15, max=1.1)
         loss = torch.mean(-torch.log(P))
 
-        # Calculate Gradients and clip
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), config.CLIP_GRADIENTS)
-        
-        # Update Weights
-        self.optimizer.step()
-
-        return loss.item(), outclassidx, batch_TCIs
-
-
-    def eval_step(self, val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val, binlabels_true_Val):
-        self.model.eval()
-        
-        UniProtIDs, probabilities = self.predict(val_dataset.DE, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase)
-        UniProtIDs = UniProtIDs[0]
-        probabilities = probabilities[0]
-        predlabels = [[label] for label in UniProtIDs]
-        binlabels_pred = mlb_Val.transform(predlabels)
-        Val_Evaluation = GetAccuracyMultiLabel(UniProtIDs, probabilities, ValKinaseUniProtIDs, val_dataset.TCI)
-        print(classification_report(binlabels_true_Val, binlabels_pred, target_names=mlb_Val.classes_) + '\n\n\n' + 'Acccuracy_Val: {}  Loss_Val: {} Top5Accuracy: {} Top10Accuracy: {}'.format(Val_Evaluation["Accuracy"], Val_Evaluation["Loss"], Val_Evaluation["Top5Acc"], Val_Evaluation["Top10Acc"]))
-
-        return Val_Evaluation, UniProtIDs, probabilities, mlb_Val
+        return loss, outclassidx
 
     
-    def train(self, train_dataset, val_dataset, epochcount,
-            ValCandidatekinaseEmbeddings=None,
-            ValCandidateKE_to_Kinase=None, ValKinaseUniProtIDs=None, ValisMultiLabel=True, ValCandidateUniProtIDs=None):
-        
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
-        self.training_epochs = epochcount
-        self.num_examples = len(train_dataset)
-
-        # Create Dataloaders
-        #self.train_dataloader = DataLoader(train_dataset, batch_size = config.BATCH_SIZE, shuffle = True)
-        #val_dataloader = DataLoader(val_dataset, batch_size = config.BATCH_SIZE, shuffle = False)
-        #test_dataloader = DataLoader(test_dataset, batch_size = config.BATCH_SIZE, shuffle = False)
-
-        print("Number of Train data: {} Number of Val data: {}".format(len(train_dataset.DE), len(val_dataset.DE)))
-        
-        if ValKinaseUniProtIDs is not None:
-            mlb_Val = MultiLabelBinarizer()
-            binlabels_true_Val = mlb_Val.fit_transform(ValKinaseUniProtIDs)
-
-        # For all epochs
-        for epoch in range(self.training_epochs):
-            print("===================================\nepoch: {}\t".format(self._epochs_completed))
-
-            num_batches = int(self.num_examples/config.BATCH_SIZE) + 1
-            loss_train = 0
-            accuracy_train = 0
-
-            # Run through all batches
-            for _ in range(num_batches):
-                
-                loss, outclassidx, batch_TCIs = self.train_step(train_dataset)
-                accuracy = accuracy_score(batch_TCIs, outclassidx, normalize=True)
-                accuracy_train += accuracy
-                loss_train += loss / num_batches
-            accuracy_train /= num_batches
-
-            print("train_loss: {:.3f}, train_acc: {:.3f}".format(loss_train, accuracy_train))
-
-            if val_dataset.DE is not None:
-                Val_Evaluation, UniProtIDs, probabilities, mlb_Val = self.eval_step(val_dataset, ValCandidatekinaseEmbeddings, ValCandidateKE_to_Kinase, ValKinaseUniProtIDs, mlb_Val, binlabels_true_Val)
-                print("Val_loss: {:.3f}, Val_acc: {:.3f}".format(Val_Evaluation["Loss"], Val_Evaluation["Accuracy"]))
-            
-            self.lr_scheduler.step()
-
-        if val_dataset.DE is not None:
-            return accuracy_train, loss_train, Val_Evaluation, UniProtIDs, probabilities, mlb_Val, binlabels_true_Val
-        else:
-            return accuracy_train, loss_train, None, None, None, None, None
-
-
-    def predict(self,  DataEmbedding, TestCandidateKinases, CandidateKE_to_Kinase):
-        self.model.eval()
-        
-        allUniProtIDs = []
-        allprobs = []
-
-        TestCandidateKinases_with1 = torch.from_numpy(np.c_[ TestCandidateKinases, np.ones(len(TestCandidateKinases))])
-        
-        DataEmbedding.to(self.device)
-        TestCandidateKinases_with1.to(self.device)
-        # seq_len = [self.seq_lens] * len(DataEmbedding)
-
-        with torch.no_grad():
-
-            pred = self.model(DataEmbedding.float())
-
-            # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)
-            logits = torch.matmul(pred, TestCandidateKinases_with1.T.float())
-            # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
-            # maxlogits = torch.max(logits, dim=1, keepdim=True)[0]
-            # Find the class index for each data point (the class with maximum F score)
-            outclassidx = torch.argmax(logits, dim=1)
-                    
-            classes = TestCandidateKinases[outclassidx]
-            # get UniProtIDs for predicted classes and return them
-            UniProtIDs =[]
-            for KE in classes:
-                UniProtIDs.append(CandidateKE_to_Kinase[tuple(KE)])
-            UniProtIDs = np.array(UniProtIDs)
-            allUniProtIDs.append(UniProtIDs) # Belki silinebilir
-            probabilities = softmax(logits, axis =1)
-        allprobs.append(probabilities) # Bu da belki silinebilir
-            
-        return allUniProtIDs, allprobs
-
-    
-
 
 
 
