@@ -6,9 +6,9 @@ TEST_KINASE_CANDIDATES = 'Dataset/AllCandidates.txt'
 TEST_IS_LABELED = True
 
 DEVICE = 'cpu' #cuda
-DATA_PATH = '/Users/mpekey/Desktop/Thesis/DKZ/Dataset/'
-KINASE_PATH = '/Users/mpekey/Desktop/Thesis/DKZ/Dataset/KinaseFeatures.txt'
-KINASE_EMBEDDING_PATH = '/Users/mpekey/Desktop/Thesis/DKZ/Dataset/KinaseFeatures.txt'
+DATA_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/'
+KINASE_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
+KINASE_EMBEDDING_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
 AMINOACIDS = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '_']
 SEQ_SIZE = 7 # Sequence size of phosphosite s + 1 + s
 BATCH_SIZE = 64

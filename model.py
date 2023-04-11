@@ -36,8 +36,8 @@ class Bi_RNN(nn.Module):
         self.dropout_layer = nn.Dropout1d(p=0.5)
         
         self.bi_rnn = RNNFrame(self.rnn_cells, dropout=0, bidirectional=True)
-        self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
-                             bidirectional=True, layer_norm_enabled=True)
+        #self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
+        #                     bidirectional=True, layer_norm_enabled=True)
 
         self.batchnorm2 = nn.BatchNorm1d(config.NUM_HIDDEN_UNITS * 2)
 

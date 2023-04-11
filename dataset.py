@@ -18,7 +18,7 @@ class DKZ_Dataset(Dataset):
             self.TCI = TCI
             self.CKE = CKE
         self.is_train = is_train
-
+        
         if is_train:
             self.ClassEmbedding_with1 = torch.from_numpy(np.c_[self.CE, np.ones(len(self.CE))]).float() # (12901, 728)
             self.TrainCandidateKinases_with1 = torch.from_numpy(np.c_[self.CKE, np.ones(len(self.CKE))]).float() # (214,728)
