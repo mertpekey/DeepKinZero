@@ -1,14 +1,19 @@
-TRAIN_DATA = 'Dataset/Train_Phosphosite.txt'
-VAL_DATA = 'Dataset/Val_Phosphosite_MultiLabel.txt'
-VAL_KINASE_CANDIDATES = 'Dataset/Val_Candidate_Kinases.txt'
-TEST_DATA = 'Dataset/Test_Phosphosite_MultiLabel.txt'
-TEST_KINASE_CANDIDATES = 'Dataset/AllCandidates.txt'
+import os
+
+def get_abs_path(file_name):
+    return os.path.abspath(file_name)
+
+TRAIN_DATA = get_abs_path('Dataset/Train_Phosphosite.txt')
+VAL_DATA = get_abs_path('Dataset/Val_Phosphosite_MultiLabel.txt')
+VAL_KINASE_CANDIDATES = get_abs_path('Dataset/Val_Candidate_Kinases.txt')
+TEST_DATA = get_abs_path('Dataset/Test_Phosphosite_MultiLabel.txt')
+TEST_KINASE_CANDIDATES = get_abs_path('/Dataset/AllCandidates.txt')
 TEST_IS_LABELED = True
 
 DEVICE = 'cpu' #cuda
-DATA_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/'
-KINASE_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
-KINASE_EMBEDDING_PATH = '/Users/mpekey/Desktop/Thesis/DeepKinZero/Dataset/KinaseFeatures.txt'
+DATA_PATH = get_abs_path('Dataset/')
+KINASE_PATH = get_abs_path('Dataset/KinaseFeatures.txt')
+KINASE_EMBEDDING_PATH = get_abs_path('Dataset/KinaseFeatures.txt')
 AMINOACIDS = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '_']
 SEQ_SIZE = 7 # Sequence size of phosphosite s + 1 + s
 BATCH_SIZE = 64
