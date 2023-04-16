@@ -79,7 +79,7 @@ echo "==========================================================================
 # srun python -u Siamese4Word2Vec.py --a 3 --b 7 &>job_output
 #VARIABLE=`srun python3 -u Sick_Siamese_butnotsickdata.py --a 3 --b 7 `
 COMMAND="python $INPUT_FILE"
-COMMAND="python3 main.py --TrainData Dataset/Train_Phosphosite.txt --ValData Dataset/Val_Phosphosite_MultiLabel.txt --ValKinaseCandidates Dataset/Val_Candidate_Kinases.txt"
+COMMAND="python3 main.py"
 
 echo ${COMMAND}
 echo "-------------------------------------------"
