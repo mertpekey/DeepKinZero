@@ -5,7 +5,6 @@ from utils import FindTrueClassIndices
 from data.kinase_embeddings import KinaseEmbedding
 
 from sklearn import preprocessing
-import config as config
 
 
 def create_datasets(data_path, candidate_path = None, mode='train', is_labeled=True, normalize_embedding = True, embed_scaler=None):
