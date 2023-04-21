@@ -5,5 +5,12 @@ This repository contains the Pytorch implementation for the paper: Iman Deznabi,
 create conda environment:
 conda env create --name NAME --file environment.yml
 
-Run the code (This part could change, I'm still writing it for reference):
-python3 main.py
+## Train DeepKinZero
+```
+python main.py --MODE train --DEVICE cuda --TRAIN_DATA train_data_path --VAL_DATA val_data_path --VAL_KINASE_CANDIDATES val_kinase_path
+```
+
+## Test DeepKinZero
+```
+python main.py --MODE test --DEVICE cuda --TEST_DATA test_data_path --TEST_KINASE_CANDIDATES test_kinase_path
+```
