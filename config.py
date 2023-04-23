@@ -3,12 +3,6 @@ import os
 def get_abs_path(file_name):
     return os.path.abspath(file_name)
 
-TRAIN_DATA = get_abs_path('Dataset/Train_Phosphosite.txt')
-VAL_DATA = get_abs_path('Dataset/Val_Phosphosite_MultiLabel.txt')
-VAL_KINASE_CANDIDATES = get_abs_path('Dataset/Val_Candidate_Kinases.txt')
-TEST_DATA = get_abs_path('Dataset/Test_Phosphosite_MultiLabel.txt')
-TEST_KINASE_CANDIDATES = get_abs_path('Dataset/AllCandidates.txt')
-TEST_IS_LABELED = True
 
 DEVICE = 'cpu' #cuda
 DATA_PATH = get_abs_path('Dataset/')

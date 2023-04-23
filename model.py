@@ -20,12 +20,12 @@ class Bi_RNN(nn.Module):
         self.ClassEmbeddingsize = ClassEmbeddingsize
         self.num_directions = 2 # Bidirectional
 
-        self.rnn_cells = [
-        [nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS),
-        nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS)],  # 1st bidirectional RNN layer
-        [nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS),
-        nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS)]  # 2nd bidirectional RNN layer
-]
+        #self.rnn_cells = [
+        #[nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS),
+        #nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS)],  # 1st bidirectional RNN layer
+        #[nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS),
+        #nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS)]  # 2nd bidirectional RNN layer
+        #]
 
         # (100, 728) # In paper, author mentions W is uniformly distributed
         self.W = torch.nn.Parameter(torch.rand(config.NUM_HIDDEN_UNITS * 2 + 1, self.ClassEmbeddingsize + 1) * 0.05)
@@ -35,9 +35,9 @@ class Bi_RNN(nn.Module):
         self.batchnorm1 = nn.BatchNorm1d(self.vocabnum)
         self.dropout_layer = nn.Dropout1d(p=0.5)
         
-        self.bi_rnn = RNNFrame(self.rnn_cells, dropout=0, bidirectional=True)
-        #self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
-        #                     bidirectional=True, layer_norm_enabled=True)
+        #self.bi_rnn = RNNFrame(self.rnn_cells, dropout=0, bidirectional=True)
+        self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
+                             bidirectional=True, layer_norm_enabled=True)
 
         self.batchnorm2 = nn.BatchNorm1d(config.NUM_HIDDEN_UNITS * 2)
 
@@ -48,8 +48,7 @@ class Bi_RNN(nn.Module):
         x = self.dropout_layer(x)
         x = x.permute(2,0,1) # (n, c, l) -> (l, n, c)
         # 13,64,100
-        x, _ = self.bi_rnn(x,None)
-        #x, _ = self.bi_lstm(x, None)
+        x, _ = self.bi_lstm(x, None)
         # 13,64,1024
         x = x.permute(1,2,0) # (l, n, c) -> (n, c, l)
         x = self.batchnorm2(x)
