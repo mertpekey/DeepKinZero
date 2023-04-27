@@ -1,0 +1,4 @@
+Train_Phosphosite.txt --> sub_ID - residue - sequence - kinaseUniProtID
+KinaseFeatures.txt    --> UniProtID - Family - Group - EnsymesVec - Domain - Kin2Vec - Pathway
+AllKinases.txt        --> Protein_name - Entrez ID - UniProtID
+Allcomb2Vec.txt       --> trigram - Protvec vector
