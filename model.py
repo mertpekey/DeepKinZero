@@ -4,19 +4,22 @@ import config as config
 
 # rnnlib package for Bidirectional Layer Norm LSTM
 # https://github.com/daehwannam/pytorch-rnn-library
-from rnnlib.seq import LayerNormLSTM, RNNFrame
+from rnnlib.seq import LayerNormLSTM
+
+# Transformer
+from transformers import BertModel, BertConfig
 
 
-class Bi_RNN(nn.Module):
+class Bi_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
-        super(Bi_RNN, self).__init__()
+        super(Bi_LSTM, self).__init__()
 
         self.vocabnum = vocabnum
         self.seq_lens = seq_lens
         self.ClassEmbeddingsize = ClassEmbeddingsize
         self.num_directions = 2 # Bidirectional
 
-        # (100, 728) # In paper, author mentions W is uniformly distributed
+        # (1025, 728) # In paper, author mentions W is uniformly distributed
         self.W = torch.nn.Parameter(torch.rand(config.NUM_HIDDEN_UNITS * 2 + 1, self.ClassEmbeddingsize + 1) * 0.05)
         # Attention
         self.attention = Attention(config.ATTENTION_SIZE, config.NUM_HIDDEN_UNITS * 2)
@@ -72,3 +75,34 @@ class Attention(nn.Module):
         output = torch.sum(inputs * alphas.unsqueeze(-1), dim=1)
 
         return output, alphas
+
+
+###################### transformers
+
+class Transformer(nn.Module):
+    def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
+        super(Transformer, self).__init__()
+
+        self.vocabnum = vocabnum
+        self.seq_lens = seq_lens
+        self.ClassEmbeddingsize = ClassEmbeddingsize
+        self.num_directions = 2 # Bidirectional
+
+        # (768, 728) # In paper, author mentions W is uniformly distributed
+        self.W = torch.nn.Parameter(torch.rand(config.TRANSFORMER_HIDDEN_UNITS + 1, self.ClassEmbeddingsize + 1) * 0.05)
+
+        # Initializing a BERT bert-base-uncased style configuration
+        #configuration = BertConfig(vocab_size=self.vocabnum, hidden_size=config.TRANSFORMER_HIDDEN_UNITS)
+
+        # Initializing a model from the bert-base-uncased style configuration
+        #model = BertModel(configuration)
+        
+
+    def forward(self,batch_embedded):
+
+        batch_embedded = batch_embedded.permute(0,2,1)
+        x=1
+        embedding = torch.nn.functional.pad(x, (0, 1), value=1)
+        Matmul = torch.matmul(embedding, self.W)
+
+        return Matmul

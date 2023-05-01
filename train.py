@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from trainer import Trainer
-from model import  Bi_RNN
+from model import  Bi_LSTM
 from utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
@@ -22,7 +22,7 @@ def train_model(args):
     models, optimizers, trainers = [], [], []
     
     for i in range(args.NUM_OF_MODELS):
-        models.append(Bi_RNN(vocabnum = phosphosite_seq_size[1], seq_lens = phosphosite_seq_size[0], ClassEmbeddingsize = KE.Embedding_size))
+        models.append(Bi_LSTM(vocabnum = phosphosite_seq_size[1], seq_lens = phosphosite_seq_size[0], ClassEmbeddingsize = KE.Embedding_size))
         optimizers.append(torch.optim.Adam(models[i].parameters(), lr=args.LEARNING_RATE))
         trainers.append(Trainer(models[i], optimizers[i], device=config.DEVICE))
     
