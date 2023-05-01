@@ -1,5 +1,4 @@
 from create_dataset import create_datasets
-from model import softmax
 from utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -59,10 +58,11 @@ def eval_test(model,
 
         pred = model(X)
 
+        # Equation 5 from paper
         logits = torch.matmul(pred, TestCandidateKinases_with1.T)
         outclassidx = torch.argmax(logits, dim=1) 
         classes = TestCandidatekinaseEmbeddings[outclassidx]
-        probabilities = softmax(logits, axis =1)
+        probabilities = torch.nn.functional.softmax(logits, dim=1)
 
     # get UniProtIDs for predicted classes and return them
     UniProtIDs =[]

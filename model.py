@@ -1,9 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import time
-
 import config as config
 
 # rnnlib package for Bidirectional Layer Norm LSTM
@@ -20,13 +16,6 @@ class Bi_RNN(nn.Module):
         self.ClassEmbeddingsize = ClassEmbeddingsize
         self.num_directions = 2 # Bidirectional
 
-        #self.rnn_cells = [
-        #[nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS),
-        #nn.RNNCell(self.vocabnum, config.NUM_HIDDEN_UNITS)],  # 1st bidirectional RNN layer
-        #[nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS),
-        #nn.RNNCell(config.NUM_HIDDEN_UNITS * self.num_directions, config.NUM_HIDDEN_UNITS)]  # 2nd bidirectional RNN layer
-        #]
-
         # (100, 728) # In paper, author mentions W is uniformly distributed
         self.W = torch.nn.Parameter(torch.rand(config.NUM_HIDDEN_UNITS * 2 + 1, self.ClassEmbeddingsize + 1) * 0.05)
         # Attention
@@ -35,7 +24,6 @@ class Bi_RNN(nn.Module):
         self.batchnorm1 = nn.BatchNorm1d(self.vocabnum)
         self.dropout_layer = nn.Dropout1d(p=0.5)
         
-        #self.bi_rnn = RNNFrame(self.rnn_cells, dropout=0, bidirectional=True)
         self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
                              bidirectional=True, layer_norm_enabled=True)
 
@@ -84,49 +72,3 @@ class Attention(nn.Module):
         output = torch.sum(inputs * alphas.unsqueeze(-1), dim=1)
 
         return output, alphas
-
-
-def softmax(X, theta = 1.0, axis = None):
-    """
-    Compute the softmax of each element along an axis of X.
-
-    Parameters
-    ----------
-    X: Tensor Probably should be floats. 
-    theta (optional): float parameter, used as a multiplier
-        prior to exponentiation. Default = 1.0
-    axis (optional): axis to compute values along. Default is the 
-        first non-singleton axis.
-
-    Returns an array the same size as X. The result will sum to 1
-    along the specified axis.
-    """
-
-    X = X.numpy()
-
-    # make X at least 2d
-    y = np.atleast_2d(X)
-
-    # find axis
-    if axis is None:
-        axis = next(j[0] for j in enumerate(y.shape) if j[1] > 1)
-
-    # multiply y against the theta parameter, 
-    y = y * float(theta)
-
-    # subtract the max for numerical stability
-    y = y - np.expand_dims(np.max(y, axis = axis), axis)
-    
-    # exponentiate y
-    y = np.exp(y)
-
-    # take the sum along the specified axis
-    ax_sum = np.expand_dims(np.sum(y, axis = axis), axis)
-
-    # finally: divide elementwise
-    p = y / ax_sum
-
-    # flatten if X was 1D
-    if len(X.shape) == 1: p = p.flatten()
-
-    return p

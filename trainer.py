@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
@@ -8,7 +7,6 @@ import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, classification_report
 
-from model import softmax
 from utils import get_eval_predictions
 import config as config
 
@@ -31,7 +29,7 @@ class Trainer:
 
         epoch_loss, epoch_accuracy = 0, 0
 
-        for batch, (X,CE,y) in enumerate(train_dataloader):
+        for _, (X,CE,y) in enumerate(train_dataloader):
             X = X.to(self.device)
             CE = CE.to(self.device)
             y = y.to(self.device)
@@ -68,24 +66,25 @@ class Trainer:
         self.model.eval()
         
         #X, CE, y = next(iter(val_dataloader))
-        X, CE, y = val_dataloader.DE, val_dataloader.ClassEmbedding_with1, val_dataloader.TCI
+        X, _, y = val_dataloader.DE, val_dataloader.ClassEmbedding_with1, val_dataloader.TCI
         
         TestCandidateKinases_with1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).float()
         
         X.to(self.device)
         TestCandidateKinases_with1.to(self.device)
 
-        allUniProtIDs = []
-        allprobs = []
+        #allUniProtIDs = []
+        #allprobs = []
 
         with torch.no_grad():
 
             pred = self.model(X)
-
+            
+            # Equation 5 from paper
             logits = torch.matmul(pred, TestCandidateKinases_with1.T)
             outclassidx = torch.argmax(logits, dim=1) 
             classes = ValCandidatekinaseEmbeddings[outclassidx]
-            probabilities = softmax(logits, axis =1)
+            probabilities = torch.nn.functional.softmax(logits, dim=1)
 
         # get UniProtIDs for predicted classes and return them
         UniProtIDs =[]
@@ -148,20 +147,28 @@ class Trainer:
 
 
     def criterion(self, y_pred, CE):
-
-        # Calculate F = DE * W * CE for all the CEs in unique class embeddings (all the kinases)        
+        
+        # F: Compatibility Function
+        # Calculate F = DE * W * CE (I think here is CKE) for all the CEs in unique class embeddings (all the kinases)        
+        # y_pred = DE * W
+        # Equation 3 from paper
         logits = torch.matmul(y_pred, self.train_dataset.TrainCandidateKinases_with1.T) # Output shape: (64,214)
         # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
         maxlogits = torch.max(logits, dim=1, keepdim=True)[0] # Output Shape: (64,1)
-        # Find the class index for each data point (the class with maximum F score)
-        outclassidx = torch.argmax(logits, dim=1) # Output Shape: (64)
-        ## Softmax
-        denom = torch.sum(torch.exp(logits - maxlogits), dim=1)
-        M = torch.sum(y_pred * CE, dim=1) - maxlogits.squeeze()
-        rightprobs = torch.exp(M) / (denom + 1e-15) # Softmax
+        
+        ## p(y|x): Equation 1 from paper
+        numerator = torch.sum(y_pred * CE, dim=1) - maxlogits.squeeze()
+        denominator = torch.sum(torch.exp(logits - maxlogits), dim=1)
+        softmax_out = torch.exp(numerator) / (denominator + 1e-15)
+        
         ## Cross Entropy
-        P = torch.clamp(rightprobs, min=1e-15, max=1.1)
+        # Equation 4 from paper
+        P = torch.clamp(softmax_out, min=1e-15, max=1.1)
         loss = torch.mean(-torch.log(P))
+
+        # Find the class index for each data point (the class with maximum F score)
+        # I detached it due to preventing unnecessary gradient calculation
+        outclassidx = torch.argmax(logits.detach(), dim=1) # Output Shape: (64)
 
         return loss, outclassidx
 
