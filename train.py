@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from trainer import Trainer
-from model import  Bi_LSTM, HuggingFace_Transformer
+from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM
 from utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
@@ -37,6 +37,11 @@ def train_model(args):
             trainer_model = Bi_LSTM(vocabnum = phosphosite_seq_size[1], seq_lens = phosphosite_seq_size[0], ClassEmbeddingsize = KE.Embedding_size)
         elif args.MODEL_TYPE == 'ProtBERT':
             trainer_model = HuggingFace_Transformer(hf_checkpoint="Rostlab/prot_bert", ClassEmbeddingsize = KE.Embedding_size)
+        elif args.MODEL_TYPE == 'Transformer_LSTM':
+            trainer_model = Transformer_LSTM(vocabnum = phosphosite_seq_size[1], 
+                                             seq_lens = phosphosite_seq_size[0], 
+                                             ClassEmbeddingsize = KE.Embedding_size, 
+                                             hf_checkpoint="Rostlab/prot_bert")
         elif args.MODEL_TYPE == 'ProtT5':
             pass
         else:

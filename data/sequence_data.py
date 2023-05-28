@@ -317,7 +317,7 @@ class all_seq_dataset:
             a tuple of sequence (SequenceSize, EmbeddingSize)
         """
         if Transformer:
-            return (10,10)
+            return (17,1024)
         elif ProtVec:
             return (13, 100)
         elif AminoAcidProperties:
