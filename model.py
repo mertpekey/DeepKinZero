@@ -7,7 +7,7 @@ import config as config
 from rnnlib.seq import LayerNormLSTM
 
 # Transformer
-from transformers import BertModel, BertConfig
+from transformers import BertModel
 
 
 class Bi_LSTM(nn.Module):
@@ -25,7 +25,7 @@ class Bi_LSTM(nn.Module):
         self.attention = Attention(config.ATTENTION_SIZE, config.NUM_HIDDEN_UNITS * 2)
 
         self.batchnorm1 = nn.BatchNorm1d(self.vocabnum)
-        self.dropout_layer = nn.Dropout1d(p=0.5)
+        self.dropout_layer = nn.Dropout(p=0.5)##nn.Dropout1d(p=0.5)
         
         self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
                              bidirectional=True, layer_norm_enabled=True)
@@ -46,6 +46,8 @@ class Bi_LSTM(nn.Module):
         x = x.permute(0,2,1) # (n, c, l) -> (n, l, c)
         x, _ = self.attention(x)
         x = self.dropout_layer(x.unsqueeze(2)).squeeze(2) # (n, c, l)
+
+        # Equation 3 from paper
         embedding = torch.nn.functional.pad(x, (0, 1), value=1)
         Matmul = torch.matmul(embedding, self.W)
 
@@ -77,32 +79,39 @@ class Attention(nn.Module):
         return output, alphas
 
 
-###################### transformers
+###################### ProtBERT Huggingface
 
-class Transformer(nn.Module):
-    def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
-        super(Transformer, self).__init__()
+class HuggingFace_Transformer(nn.Module):
+    def __init__(self, hf_checkpoint, ClassEmbeddingsize):
+        super(HuggingFace_Transformer, self).__init__()
 
-        self.vocabnum = vocabnum
-        self.seq_lens = seq_lens
-        self.ClassEmbeddingsize = ClassEmbeddingsize
-        self.num_directions = 2 # Bidirectional
-
-        # (768, 728) # In paper, author mentions W is uniformly distributed
-        self.W = torch.nn.Parameter(torch.rand(config.TRANSFORMER_HIDDEN_UNITS + 1, self.ClassEmbeddingsize + 1) * 0.05)
-
-        # Initializing a BERT bert-base-uncased style configuration
-        #configuration = BertConfig(vocab_size=self.vocabnum, hidden_size=config.TRANSFORMER_HIDDEN_UNITS)
-
-        # Initializing a model from the bert-base-uncased style configuration
-        #model = BertModel(configuration)
+        # (1025, 728) # In paper, author mentions W is uniformly distributed
+        self.W = torch.nn.Parameter(torch.rand(config.TRANSFORMER_HIDDEN_UNITS + 1, ClassEmbeddingsize + 1) * 0.05)
+        self.model = BertModel.from_pretrained(hf_checkpoint)
         
 
-    def forward(self,batch_embedded):
+    def forward(self,X):
 
-        batch_embedded = batch_embedded.permute(0,2,1)
-        x=1
-        embedding = torch.nn.functional.pad(x, (0, 1), value=1)
+        if config.HF_ONLY_ID:
+            X_input = X
+            attention_mask = None
+        else:
+            X_input = X['input_ids']
+            attention_mask = X['attention_mask']
+
+        # Shape of X should be (batch_size, seq_len)
+        X_input = X_input.view(X_input.shape[0], -1)
+        output = self.model(input_ids = X_input, attention_mask = attention_mask) # (batch_size, seq_len, 1024)
+
+        if config.TRANSFORMER_EMBEDDING_TYPE == 'POOLER':
+            embedding = torch.nn.functional.pad(output.pooler_output, (0, 1), value=1)
+        elif config.TRANSFORMER_EMBEDDING_TYPE == 'CLS':
+            embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
+            embedding = embedding[:, 0]
+        elif config.TRANSFORMER_EMBEDDING_TYPE == 'ONLY_PHOSPHOSITE':
+            embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
+            embedding = embedding[:, int(embedding.shape[1]//2)] # embedding of phosphosite (middle element)
+        
         Matmul = torch.matmul(embedding, self.W)
 
         return Matmul

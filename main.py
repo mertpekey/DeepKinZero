@@ -27,9 +27,13 @@ if __name__ == '__main__':
     parser.add_argument('--DEVICE', type=str, default='cpu')
     parser.add_argument('--NUM_OF_MODELS', type=int, default=1)
     parser.add_argument('--NUM_EPOCHS', type=int, default=50)
-    parser.add_argument('--MODEL_TYPE', type=str, default='BiLSTM')
+    parser.add_argument('--MODEL_TYPE', type=str, default='ProtBERT') #BiLSTM
     parser.add_argument('--BATCH_SIZE', type=int, default=64)
     parser.add_argument('--LEARNING_RATE', type=float, default=0.001)
+    parser.add_argument('--IS_HUGGINGFACE', type=bool, default=True)
+    
+    parser.add_argument('--SAVE_MODEL', type=bool, default=False)
+    parser.add_argument('--SAVE_FILEPATH', type=str, default='50Epochs_DKZ')
 
     args = parser.parse_args()
 
@@ -42,4 +46,3 @@ if __name__ == '__main__':
         pass
     else:
         print('Give valid MODE arguments. Valid MODEs are train, test or predict')
-
