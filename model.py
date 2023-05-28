@@ -88,6 +88,12 @@ class HuggingFace_Transformer(nn.Module):
         # (1025, 728) # In paper, author mentions W is uniformly distributed
         self.W = torch.nn.Parameter(torch.rand(config.TRANSFORMER_HIDDEN_UNITS + 1, ClassEmbeddingsize + 1) * 0.05)
         self.model = BertModel.from_pretrained(hf_checkpoint)
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        self.emb_model = BertModel.from_pretrained(hf_checkpoint)
+        self.emb_model_encoder = self.emb_model.encoder
+        self.emb_model_pooler = self.emb_model.pooler
         
 
     def forward(self,X):
@@ -101,16 +107,23 @@ class HuggingFace_Transformer(nn.Module):
 
         # Shape of X should be (batch_size, seq_len)
         X_input = X_input.view(X_input.shape[0], -1)
-        output = self.model(input_ids = X_input, attention_mask = attention_mask) # (batch_size, seq_len, 1024)
 
-        if config.TRANSFORMER_EMBEDDING_TYPE == 'POOLER':
-            embedding = torch.nn.functional.pad(output.pooler_output, (0, 1), value=1)
-        elif config.TRANSFORMER_EMBEDDING_TYPE == 'CLS':
-            embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
-            embedding = embedding[:, 0]
-        elif config.TRANSFORMER_EMBEDDING_TYPE == 'ONLY_PHOSPHOSITE':
-            embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
-            embedding = embedding[:, int(embedding.shape[1]//2)] # embedding of phosphosite (middle element)
+        if config.USE_SECOND_TRANSFORMER:
+            output = self.model(input_ids = X_input, attention_mask = attention_mask)
+            output = self.emb_model_encoder(output.last_hidden_state)
+            embedding = self.emb_model_pooler(output.last_hidden_state)
+            embedding = torch.nn.functional.pad(embedding, (0, 1), value=1)
+        else:
+            output = self.model(input_ids = X_input, attention_mask = attention_mask) # (batch_size, seq_len, 1024)
+
+            if config.TRANSFORMER_EMBEDDING_TYPE == 'POOLER':
+                embedding = torch.nn.functional.pad(output.pooler_output, (0, 1), value=1)
+            elif config.TRANSFORMER_EMBEDDING_TYPE == 'CLS':
+                embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
+                embedding = embedding[:, 0]
+            elif config.TRANSFORMER_EMBEDDING_TYPE == 'ONLY_PHOSPHOSITE':
+                embedding = torch.nn.functional.pad(output.last_hidden_state, (0, 1), value=1)
+                embedding = embedding[:, int(embedding.shape[1]//2)] # embedding of phosphosite (middle element)
         
         Matmul = torch.matmul(embedding, self.W)
 
