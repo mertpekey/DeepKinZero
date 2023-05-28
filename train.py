@@ -78,7 +78,7 @@ def train_model(args):
         AllAccuracyValProbs.append(ValProbs) # AllAccuracyValProbs[i] = ValProbs
 
         if args.SAVE_MODEL:
-            save_filepath = os.path.join('pretrained_files','pretrained_models',args.MODEL_TYPE, args.SAVE_FILEPATH + f'_{i}')
+            save_filepath = os.path.join('pretrained_files','pretrained_models',args.MODEL_TYPE, args.SAVE_FILEPATH + f'_{i}.pt')
             state = {
                 'state_dict': trainers[i].model.state_dict(),
                 'optimizer': trainers[i].optimizer.state_dict()
