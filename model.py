@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import config as config
+import Utils.config as config
 
 # rnnlib package for Bidirectional Layer Norm LSTM
 # https://github.com/daehwannam/pytorch-rnn-library
@@ -9,6 +9,8 @@ from rnnlib.seq import LayerNormLSTM
 # Transformer
 from transformers import BertModel
 
+
+## BiLSTM
 
 class Bi_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
@@ -131,6 +133,8 @@ class HuggingFace_Transformer(nn.Module):
 
         return Matmul
 
+
+## Transformer -> LSTM
 
 class Transformer_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize, hf_checkpoint):

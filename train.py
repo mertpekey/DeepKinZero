@@ -3,10 +3,9 @@ import torch.optim as optim
 import numpy as np
 from trainer import Trainer
 from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM
-from utils import ensemble, get_eval_predictions
+from Utils.utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
-import config as config
 import os
 import sys
 
@@ -18,13 +17,15 @@ def train_model(args):
 
     # Create Datasets
 
-    train_dataset, phosphosite_seq_size, embed_scaler = create_datasets(args.TRAIN_DATA, 
+    train_dataset, phosphosite_seq_size, embed_scaler = create_datasets(args.TRAIN_DATA,
+                                                                        args=args,
                                                                         mode='train', 
                                                                         is_huggingface=args.IS_HUGGINGFACE)
     val_dataset, _, KE, val_candidate_kinase_embeddings, \
     val_candidate_ke_to_kinase, val_kinase_uniprotid, \
-    val_candidate_uniprotid = create_datasets(args.VAL_DATA, 
-                                              args.VAL_KINASE_CANDIDATES, 
+    val_candidate_uniprotid = create_datasets(args.VAL_DATA,
+                                              args=args,
+                                              candidate_path=args.VAL_KINASE_CANDIDATES, 
                                               mode='val',
                                               embed_scaler=embed_scaler, 
                                               is_huggingface=args.IS_HUGGINGFACE)
@@ -61,7 +62,7 @@ def train_model(args):
     AllAccuracyTrains = np.zeros(args.NUM_OF_MODELS)
     AllAccuracyLoss = np.zeros(args.NUM_OF_MODELS)
     AllAccuracyVals = np.zeros(args.NUM_OF_MODELS)
-    AllAccuracyValProbs = [] # np.empty(config.NUM_OF_MODELS)
+    AllAccuracyValProbs = []
 
     # Train the models
     for i, model in enumerate(models):
@@ -94,7 +95,7 @@ def train_model(args):
     # Ensemble the results (Validation)
     if Val_Evaluation is not None:
         ValUniProtIDs, Valprobabilities = ensemble(ValUniProtIDs, AllAccuracyValProbs, val_candidate_uniprotid)
-        Val_Evaluation, binlabels_pred = get_eval_predictions(ValUniProtIDs, Valprobabilities, val_kinase_uniprotid, val_dataset.TCI, mlb_val)
+        Val_Evaluation, binlabels_pred = get_eval_predictions(ValUniProtIDs, Valprobabilities, val_kinase_uniprotid, val_dataset.labels, mlb_val)
         print(classification_report(binlabels_true_Val, binlabels_pred, target_names=mlb_val.classes_) + \
               '\n\n\n' + 'Val_Acc: {}  Val_Loss: {} Val_Acc_Top3: {} Val_Acc_Top5: {} Val_Acc_Top10: {}'\
                 .format(Val_Evaluation["Accuracy"], Val_Evaluation["Loss"], Val_Evaluation["Top3Acc"], Val_Evaluation["Top5Acc"], Val_Evaluation["Top10Acc"]))

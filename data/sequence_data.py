@@ -2,7 +2,6 @@ import numpy as np
 import os
 import csv
 
-import config as config
 from data.amino_acids import AminoAcids
 
 import torch
@@ -15,18 +14,19 @@ class all_seq_dataset:
     It also generates different data embeddings.
     """
 
-    def __init__(self):
+    def __init__(self, args):
         """
         The construct only reads trigram vectors to initialize the dictionaries
         """
         
+        self.args = args
         self.AminoAcids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '_']
 
         self.Sequences= [] # The sequences of sites
         self.Sub_IDs= [] # The Uniprot IDs of Substrates
         self.Residues = []
         self.Kinases= [] # The list of kinases it can be empty if this is a test set
-        self.SeqSize = config.SEQ_SIZE # The sequence size of the phosphosite is SeqSize * 2 + 1 this paramether indicates how many of amino acids we will pick in each side of the site
+        self.SeqSize = args.SEQ_SIZE # The sequence size of the phosphosite is SeqSize * 2 + 1 this paramether indicates how many of amino acids we will pick in each side of the site
 
         # KINASE ATTRIBUTES
         self.Kin_One_Hot_Encoded= [] #The one hot encoded kinases will be used for training RNN
@@ -119,7 +119,7 @@ class all_seq_dataset:
                 self.propertyVectors, _ = AA.get_onehot_allalphabet(self)
             else:
                 # Creating tokens for pretrained transformer model
-                if config.HF_ONLY_ID:
+                if self.args.HF_ONLY_ID:
                     for seq in self.Sequences:
                         seq = ' '.join(list(seq)) # ProtBERT
                         encoded_input = self.tokenizer(seq, return_tensors='pt') # Bu tum sequence'i aliyor
@@ -140,7 +140,7 @@ class all_seq_dataset:
         """
         Read the file which contains the protvec vectors for all the possible trigrams and store it in a dictionary
         """
-        with open(os.path.join(config.DATA_PATH, 'Allcomb2Vec.txt'), 'r') as f:
+        with open(os.path.join(self.args.DATA_PATH, 'Allcomb2Vec.txt'), 'r') as f:
             for line in f:
                 line = line.rstrip()
                 splits = line.split('\t')

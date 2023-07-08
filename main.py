@@ -16,13 +16,15 @@ if __name__ == '__main__':
     # Bunu positional argument yapabiliriz (Zorunlu yani) ve sadece train, test ve predict secilebilsin
     parser.add_argument('--MODE', type=str, default='train')
 
+    parser.add_argument('--DATA_PATH', type=str, default=get_abs_path('Dataset/'))
     parser.add_argument('--TRAIN_DATA', type=str, default=get_abs_path('Dataset/Train_Phosphosite.txt'))
     parser.add_argument('--VAL_DATA', type=str, default=get_abs_path('Dataset/Val_Phosphosite_MultiLabel.txt'))
     parser.add_argument('--VAL_KINASE_CANDIDATES', type=str, default=get_abs_path('Dataset/Val_Candidate_Kinases.txt'))
-
     parser.add_argument('--TEST_DATA', type=str, default=get_abs_path('Dataset/Test_Phosphosite_MultiLabel.txt'))
     parser.add_argument('--TEST_KINASE_CANDIDATES', type=str, default=get_abs_path('Dataset/AllCandidates.txt'))
     parser.add_argument('--TEST_IS_LABELED', type=bool, default=True)
+    parser.add_argument('--KINASE_PATH', type=str, default=get_abs_path('Dataset/KinaseFeatures.txt'))
+    parser.add_argument('--KINASE_EMBEDDING_PATH', type=str, default=get_abs_path('Dataset/KinaseFeatures.txt'))
 
     parser.add_argument('--DEVICE', type=str, default='cpu')
     parser.add_argument('--NUM_OF_MODELS', type=int, default=1)
@@ -30,7 +32,9 @@ if __name__ == '__main__':
     parser.add_argument('--MODEL_TYPE', type=str, default='Transformer_LSTM') # [BiLSTM, ProtBERT, Transformer_LSTM]
     parser.add_argument('--BATCH_SIZE', type=int, default=64)
     parser.add_argument('--LEARNING_RATE', type=float, default=0.001)
+    parser.add_argument('--SEQ_SIZE', type=int, default=7)
     parser.add_argument('--IS_HUGGINGFACE', type=bool, default=True)
+    parser.add_argument('--HF_ONLY_ID', type=bool, default=True)
     
     parser.add_argument('--SAVE_MODEL', type=bool, default=False)
     parser.add_argument('--SAVE_FILEPATH', type=str, default='50Epochs_DKZ')

@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import config
 
 # X, ClassEmbedding, TrueClassIDX, TrainCandidateKinases
 
 # Hepsini Torch.Tensor'e cevir
 class DKZ_Dataset(Dataset):
-    def __init__(self, DE, CE, TCI, CKE, is_train = True, is_input_tensor=False):
+    def __init__(self, DE, CE, TCI, CKE, args, is_train = True, is_input_tensor=False):
+
+        self.args = args
 
         if is_input_tensor:
             self.phosphosite = DE
@@ -36,7 +37,7 @@ class DKZ_Dataset(Dataset):
 
     def __getitem__(self, idx):
         #return self.DE[idx], self.ClassEmbedding_with1[idx], self.TCI[idx]
-        if config.HF_ONLY_ID:
+        if self.args.HF_ONLY_ID:
             return self.phosphosite[idx], self.kinase_with_1[idx], self.labels[idx]
         else:
             return {'input_ids': self.phosphosite['input_ids'][idx],

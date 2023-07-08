@@ -7,16 +7,16 @@ import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, classification_report
 
-from utils import get_eval_predictions
-import config as config
+from Utils.utils import get_eval_predictions
 
 
 class Trainer:
-    def __init__(self, model, optimizer, scheduler, device='cpu'):
+    def __init__(self, model, optimizer, scheduler, args, device='cpu'):
         self.model = model
         self.optimizer = optimizer
         self.device = device
         self.lr_scheduler = scheduler
+        self.args = args
 
         # Set model device
         self.model.to(self.device)
@@ -32,7 +32,7 @@ class Trainer:
         for _, (phosphosite,kinase,y) in enumerate(train_dataloader):
 
             # Set device of data
-            if config.HF_ONLY_ID:
+            if self.args.HF_ONLY_ID:
                 phosphosite = phosphosite.to(self.device)
             else:
                 phosphosite['input_ids'] = phosphosite['input_ids'].to(self.device)
@@ -76,7 +76,7 @@ class Trainer:
         candidate_kinase_with_1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).float()
         
         # Set Data Device
-        if config.HF_ONLY_ID:
+        if self.args.HF_ONLY_ID:
             phosphosite = phosphosite.to(self.device)
         else:
             phosphosite['input_ids'] = phosphosite['input_ids'].to(self.device)
@@ -118,7 +118,7 @@ class Trainer:
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
 
-        train_dataloader = DataLoader(train_dataset, batch_size = config.BATCH_SIZE, shuffle = True)
+        train_dataloader = DataLoader(train_dataset, batch_size = self.args.BATCH_SIZE, shuffle = True)
         #if val_dataset is not None:
             #val_dataloader = DataLoader(val_dataset, batch_size = len(val_dataset), shuffle = False)
 

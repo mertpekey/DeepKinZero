@@ -1,5 +1,5 @@
 from create_dataset import create_datasets
-from utils import ensemble, get_eval_predictions
+from Utils.utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import MultiLabelBinarizer
 import torch
@@ -8,7 +8,6 @@ import numpy as np
 def test_model(args):
     pass
     # Burayi duzenleyecegim
-
 
     # Results (Test)
     if args.TEST_DATA != '':

@@ -12,10 +12,6 @@ from sklearn.preprocessing import OneHotEncoder
 # Utils
 import csv
 
-# Files
-import config as config
-
-
 
 class Kinase:
     """
@@ -75,7 +71,7 @@ class KinaseEmbedding:
     KE_to_Kinase = {} # a dictionary of kinase Embedding vector to kinase class
     Embedding_size = 0 # The size of Kinase embeddings
 
-    def __init__(self, Family = True, Group = True, Pathway = True, Kin2Vec = True, InterProDomains = True, Enzymes = True, SubCellLoc = True, GO_C_vec = True, GO_F_vec = True, GO_P_vec = True):
+    def __init__(self, args, Family = True, Group = True, Pathway = True, Kin2Vec = True, InterProDomains = True, Enzymes = True, SubCellLoc = True, GO_C_vec = True, GO_F_vec = True, GO_P_vec = True):
         """
         Get the paramethers for class embedding and initilize some variables to use later then run readKinaseEmbedding and ReadKinases methods to read all the kinases and create the embeddings for them
         
@@ -91,6 +87,7 @@ class KinaseEmbedding:
             GO_F_vec: Use GO functional in Class Embedding
             GO_P_vec: Use GO pathways in Class Embedding
         """
+        self.args = args
         self.Family= Family
         self.Group=Group
         self.Pathway= Pathway
@@ -108,7 +105,7 @@ class KinaseEmbedding:
         """
         This method reads all kinases from the AllKinasePath and creates the necessary dictionaries and arrays
         """
-        with open(config.KINASE_PATH, 'r') as AllKinasefilecsv:
+        with open(self.args.KINASE_PATH, 'r') as AllKinasefilecsv:
             AllKinasefile= csv.reader(AllKinasefilecsv, delimiter='\t')
             for row in AllKinasefile:
                 newkinase = Kinase(row[2], row[1], row[0])
@@ -140,7 +137,7 @@ class KinaseEmbedding:
         """
         Read the kinase embeddings file to get the features of kinases
         """
-        with open(config.KINASE_EMBEDDING_PATH) as csvfile:
+        with open(self.args.KINASE_EMBEDDING_PATH) as csvfile:
             KinEmb = csv.reader(csvfile, delimiter='\t')
             
             Families = []
