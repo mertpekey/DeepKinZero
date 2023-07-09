@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from trainer import Trainer
-from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM
+from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM, ESM_LSTM
 from Utils.utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
@@ -19,16 +19,14 @@ def train_model(args):
 
     train_dataset, phosphosite_seq_size, embed_scaler = create_datasets(args.TRAIN_DATA,
                                                                         args=args,
-                                                                        mode='train', 
-                                                                        is_huggingface=args.IS_HUGGINGFACE)
+                                                                        mode='train')
     val_dataset, _, KE, val_candidate_kinase_embeddings, \
     val_candidate_ke_to_kinase, val_kinase_uniprotid, \
     val_candidate_uniprotid = create_datasets(args.VAL_DATA,
                                               args=args,
                                               candidate_path=args.VAL_KINASE_CANDIDATES, 
                                               mode='val',
-                                              embed_scaler=embed_scaler, 
-                                              is_huggingface=args.IS_HUGGINGFACE)
+                                              embed_scaler=embed_scaler)
 
     # Define Model and Trainers
     models, optimizers, schedulers, trainers = [], [], [], []
@@ -45,6 +43,11 @@ def train_model(args):
                                              hf_checkpoint="Rostlab/prot_bert")
         elif args.MODEL_TYPE == 'ProtT5':
             pass
+        elif args.MODEL_TYPE == 'ESM':
+            trainer_model = ESM_LSTM(vocabnum = phosphosite_seq_size[1],
+                                     seq_lens = phosphosite_seq_size[0],
+                                     ClassEmbeddingsize = KE.Embedding_size,
+                                     model_name=args.ESM_MODEL_NAME)
         else:
             print('Input valid model name')
             sys.exit()
@@ -55,7 +58,7 @@ def train_model(args):
         models.append(trainer_model)
         optimizers.append(trainer_optimizer)
         schedulers.append(trainer_scheduler)
-        trainers.append(Trainer(models[i], optimizers[i], scheduler=schedulers[i], device=args.DEVICE))
+        trainers.append(Trainer(models[i], optimizers[i], scheduler=schedulers[i], args=args))
     
 
     # Train Eval Lists
@@ -67,8 +70,7 @@ def train_model(args):
     # Train the models
     for i, model in enumerate(models):
         accuracy_train, loss_train, Val_Evaluation, ValUniProtIDs, ValProbs, mlb_val, binlabels_true_Val  = trainers[i].train(train_dataset, 
-                                                                                                                              val_dataset, 
-                                                                                                                              num_epochs=args.NUM_EPOCHS, 
+                                                                                                                              val_dataset,
                                                                                                                               ValCandidatekinaseEmbeddings=val_candidate_kinase_embeddings, 
                                                                                                                               ValCandidateKE_to_Kinase=val_candidate_ke_to_kinase, 
                                                                                                                               ValKinaseUniProtIDs=val_kinase_uniprotid)

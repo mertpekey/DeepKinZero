@@ -3,6 +3,7 @@ import os
 import csv
 
 from data.amino_acids import AminoAcids
+from Utils.utils import load_esm_model, get_esm_embedding_dim
 
 import torch
 from transformers import T5Tokenizer, T5EncoderModel, BertModel, BertTokenizer
@@ -44,14 +45,20 @@ class all_seq_dataset:
         self.protVecVectors = [] #A list of protvec vectors for each sequence in the dataset
         self.seqBinaryVectors = []
         self.propertyVectors = []
-        self.transformerVectors = []
+        self.transformerVectors = [] # For Huggingface Transformers
+        self.esmVectors = [] # For ESM Protein Models from Meta
 
-        self.tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
+        if args.IS_HUGGINGFACE:
+            self.tokenizer = BertTokenizer.from_pretrained("Rostlab/prot_bert", do_lower_case=False)
+        
+        if args.USE_ESM_PHOSPHOSITE:
+            _, self.esm_alphabet = load_esm_model(args.ESM_MODEL_NAME)
+            self.esm_batch_converter = self.esm_alphabet.get_batch_converter()
         
         self.read_trigram_vectors()
 
         
-    def get_data(self, datapath, AllKinases, is_labeled=False, MultiLabel=False, is_huggingface = False):
+    def get_data(self, datapath, AllKinases, args, is_labeled=False, MultiLabel=False):
         """
         This methods reads the given data and fills the paramethers
         
@@ -80,7 +87,7 @@ class all_seq_dataset:
                 self.Sub_IDs.append(row[0])
                 self.Residues.append(row[1])
 
-                if is_huggingface:
+                if args.IS_HUGGINGFACE or args.USE_ESM_PHOSPHOSITE:
                     Sequence = row[2].upper()
                 else:
                     Sequence = list(row[2].upper())
@@ -105,34 +112,38 @@ class all_seq_dataset:
                         self.KinaseUniProtIDs.append(UniProtIDs)
 
                 
-                if is_huggingface == False:
+                if args.IS_HUGGINGFACE == False:
                     vec_mat = self.get_protvec_vectors(Sequence)
                     self.protVecVectors.append(self.pad_vectors(Sequence, vec_mat))
 
             if is_labeled:
                 self.create_onehot_kinase_embeddings()
 
-            if is_huggingface == False:
+            if args.IS_HUGGINGFACE == False and args.USE_ESM_PHOSPHOSITE == False:
                 self.protVecVectors = np.array(self.protVecVectors) # (12901,13,100)
                 self.set_onehot_encodedseq(self.Sequences)
                 AA = AminoAcids()
                 self.propertyVectors, _ = AA.get_onehot_allalphabet(self)
             else:
-                # Creating tokens for pretrained transformer model
-                if self.args.HF_ONLY_ID:
-                    for seq in self.Sequences:
-                        seq = ' '.join(list(seq)) # ProtBERT
-                        encoded_input = self.tokenizer(seq, return_tensors='pt') # Bu tum sequence'i aliyor
-                        #encoded_input = self.tokenizer.batch_encode_plus(seq, return_tensors='pt') # Bu tek tek aminoacidleri
-                        self.transformerVectors.append(encoded_input['input_ids'])
-                    self.transformerVectors = torch.stack(self.transformerVectors)
+                if args.USE_ESM_PHOSPHOSITE == False:
+                    # Creating tokens for pretrained transformer model
+                    if self.args.HF_ONLY_ID:
+                        for seq in self.Sequences:
+                            seq = ' '.join(list(seq)) # ProtBERT
+                            encoded_input = self.tokenizer(seq, return_tensors='pt') # Bu tum sequence'i aliyor
+                            #encoded_input = self.tokenizer.batch_encode_plus(seq, return_tensors='pt') # Bu tek tek aminoacidleri
+                            self.transformerVectors.append(encoded_input['input_ids'])
+                        self.transformerVectors = torch.stack(self.transformerVectors)
+                    else:
+                        temp_seq_list = [' '.join(list(seq)) for seq in self.Sequences]
+                        self.transformerVectors = self.tokenizer(temp_seq_list, return_tensors='pt')
+                    print()
                 else:
-                    temp_seq_list = [' '.join(list(seq)) for seq in self.Sequences]
-                    self.transformerVectors = self.tokenizer(temp_seq_list, return_tensors='pt')
-                print()
+                    esm_data_tuples = [(sub_id, seq.replace('_','-')) for seq, sub_id in zip(self.Sequences, self.Sub_IDs)]
+                    _, _, batch_tokens = self.esm_batch_converter(esm_data_tuples)
+                    self.esmVectors = batch_tokens
+                    print(batch_tokens.size())
 
-
-    
 
     ### PROTVEC METHODS ###
 
@@ -282,7 +293,7 @@ class all_seq_dataset:
 
     ### DATA USED FOR MODEL ###
 
-    def get_input_embeddings(self, AminoAcidProperties, ProtVec, Transformer):
+    def get_input_embeddings(self, AminoAcidProperties, ProtVec, Transformer, ESM):
         """
         Get the embedded sequences as a list of vectors
         
@@ -294,7 +305,9 @@ class all_seq_dataset:
             a list of vectors generated for each sequence in the dataset, the length of vectors is different based on the selected method
             Protvec will generate vectors of length 100, AminoAcidProperties will generate vectors of length  and binary will generate vectors of length 315
         """
-        if Transformer:
+        if ESM:
+            return self.esmVectors
+        elif Transformer:
             return self.transformerVectors
         elif ProtVec:
             return self.protVecVectors
@@ -304,7 +317,7 @@ class all_seq_dataset:
             return self.seqBinaryVectors.reshape([-1, 15, 21])
 
     @staticmethod
-    def Get_SeqSize(AminoAcidProperties, ProtVec, Transformer):
+    def Get_SeqSize(AminoAcidProperties, ProtVec, Transformer, ESM, ESM_model_name):
         """
         According to given flags AminoAcidProperties and ProtVec, calculates the size of output
         The output is a tuple of (Seq_size, EmbeddingSize)
@@ -318,6 +331,8 @@ class all_seq_dataset:
         """
         if Transformer:
             return (17,1024)
+        elif ESM:
+            return (17, get_esm_embedding_dim(ESM_model_name)) # Bunu dinamik yap
         elif ProtVec:
             return (13, 100)
         elif AminoAcidProperties:

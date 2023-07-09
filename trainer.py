@@ -11,10 +11,10 @@ from Utils.utils import get_eval_predictions
 
 
 class Trainer:
-    def __init__(self, model, optimizer, scheduler, args, device='cpu'):
+    def __init__(self, model, optimizer, scheduler, args):
         self.model = model
         self.optimizer = optimizer
-        self.device = device
+        self.device = args.DEVICE
         self.lr_scheduler = scheduler
         self.args = args
 
@@ -108,8 +108,7 @@ class Trainer:
 
     def train(self,
               train_dataset,
-              val_dataset, 
-              num_epochs,
+              val_dataset,
               ValCandidatekinaseEmbeddings=None,
               ValCandidateKE_to_Kinase=None, 
               ValKinaseUniProtIDs=None):
@@ -134,7 +133,7 @@ class Trainer:
         ### TRAINING STARTS ###
         epochs_start_time = time.time()
 
-        for epoch in range(num_epochs):
+        for epoch in range(self.args.NUM_EPOCHS):
             print("===================================\nepoch: {}\t".format(epoch))
             train_step_start_time = time.time()
 

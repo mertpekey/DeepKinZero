@@ -17,11 +17,12 @@ class Kinase:
     """
     Class for holding kinase information
     """
-    def __init__(self, _Protein_Name,_EntrezID, _UniprotID, _EmbeddedVector = None):
+    def __init__(self, _Protein_Name,_EntrezID, _UniprotID, _Kinase_Sequence, _EmbeddedVector = None):
         
         self.Protein_Name= _Protein_Name
         self.EntrezID= _EntrezID
         self.UniprotID= _UniprotID
+        self.Kinase_Sequence= _Kinase_Sequence
         if _EmbeddedVector != None:
             self.EmbeddedVector = _EmbeddedVector
             
@@ -108,7 +109,7 @@ class KinaseEmbedding:
         with open(self.args.KINASE_PATH, 'r') as AllKinasefilecsv:
             AllKinasefile= csv.reader(AllKinasefilecsv, delimiter='\t')
             for row in AllKinasefile:
-                newkinase = Kinase(row[2], row[1], row[0])
+                newkinase = Kinase(row[2], row[1], row[0], row[3])
                 self.allkinases.append(newkinase)
                 self.UniProtID_to_Kinase[row[0]] = newkinase
             self.AllKinaseEmbeddings, _ = self.create_class_embedding(self.allkinases)

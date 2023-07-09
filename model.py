@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import Utils.config as config
+from Utils.utils import load_esm_model
 
 # rnnlib package for Bidirectional Layer Norm LSTM
 # https://github.com/daehwannam/pytorch-rnn-library
@@ -10,7 +11,7 @@ from rnnlib.seq import LayerNormLSTM
 from transformers import BertModel
 
 
-## BiLSTM
+###################### BiLSTM
 
 class Bi_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize):
@@ -134,33 +135,17 @@ class HuggingFace_Transformer(nn.Module):
         return Matmul
 
 
-## Transformer -> LSTM
+###################### Transformer (Frozen) -> LSTM
 
 class Transformer_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize, hf_checkpoint):
         super(Transformer_LSTM, self).__init__()
 
-        self.vocabnum = vocabnum
-        self.seq_lens = seq_lens
-        self.ClassEmbeddingsize = ClassEmbeddingsize
-        self.num_directions = 2 # Bidirectional
-
-        # (1025, 728) # In paper, author mentions W is uniformly distributed
-        self.W = torch.nn.Parameter(torch.rand(config.NUM_HIDDEN_UNITS * 2 + 1, self.ClassEmbeddingsize + 1) * 0.05)
-        # Attention
-        self.attention = Attention(config.ATTENTION_SIZE, config.NUM_HIDDEN_UNITS * 2)
-
-        self.batchnorm1 = nn.BatchNorm1d(self.vocabnum)
-        self.dropout_layer = nn.Dropout(p=0.5)##nn.Dropout1d(p=0.5)
-        
         self.transformer_model = BertModel.from_pretrained(hf_checkpoint)
         for param in self.transformer_model.parameters():
                 param.requires_grad = False
 
-        self.bi_lstm = LayerNormLSTM(self.vocabnum, config.NUM_HIDDEN_UNITS, config.NUM_LSTM_LAYERS, dropout=0, r_dropout=0,
-                             bidirectional=True, layer_norm_enabled=True)
-
-        self.batchnorm2 = nn.BatchNorm1d(config.NUM_HIDDEN_UNITS * 2)
+        self.LSTM = Bi_LSTM(vocabnum, seq_lens, ClassEmbeddingsize)
 
     def forward(self,X):
         if config.HF_ONLY_ID:
@@ -173,23 +158,26 @@ class Transformer_LSTM(nn.Module):
         # Shape of X should be (batch_size, seq_len)
         X_input = X_input.view(X_input.shape[0], -1)
         batch_embedded = self.transformer_model(input_ids = X_input, attention_mask = attention_mask)
+        batch_embedded = batch_embedded.last_hidden_state
+        Matmul = self.LSTM(X)
+        return Matmul
+    
 
-        # batch_embedded (n, l, c) -> (n, c, l)
-        batch_embedded = batch_embedded.last_hidden_state.permute(0,2,1)
-        x = self.batchnorm1(batch_embedded)
-        x = self.dropout_layer(x)
-        x = x.permute(2,0,1) # (n, c, l) -> (l, n, c)
-        # 13,64,100
-        x, _ = self.bi_lstm(x, None)
-        # 13,64,1024
-        x = x.permute(1,2,0) # (l, n, c) -> (n, c, l)
-        x = self.batchnorm2(x)
-        x = x.permute(0,2,1) # (n, c, l) -> (n, l, c)
-        x, _ = self.attention(x)
-        x = self.dropout_layer(x.unsqueeze(2)).squeeze(2) # (n, c, l)
+###################### ESM
 
-        # Equation 3 from paper
-        embedding = torch.nn.functional.pad(x, (0, 1), value=1)
-        Matmul = torch.matmul(embedding, self.W)
+class ESM_LSTM(nn.Module):
+    def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize, model_name):
+        super(ESM_LSTM, self).__init__()
+        
+        self.esm_model, _ = load_esm_model(model_name)
+        self.last_hidden_state_index = len(self.esm_model.layers) - 1
+        for param in self.esm_model.parameters():
+            param.requires_grad = False
 
+        self.LSTM = Bi_LSTM(vocabnum, seq_lens, ClassEmbeddingsize)
+
+    def forward(self,X):
+        X = self.esm_model(X, repr_layers=[self.last_hidden_state_index])
+        X = X["representations"][self.last_hidden_state_index]
+        Matmul = self.LSTM(X)
         return Matmul

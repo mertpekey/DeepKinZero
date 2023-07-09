@@ -1,4 +1,6 @@
 import numpy as np
+#from esm.pretrained import load_model_and_alphabet as esm_load_model_and_alphabet
+import torch
 
 def ensemble(UniProtIDs, probabilities, CandidatekinaseUniProtIDs):
     sum_probs = np.sum(np.array(probabilities), axis=0) / len(probabilities)
@@ -83,3 +85,33 @@ def FindTrueClassIndices(ClassEmbeddings, CandidateKinases, Multilabel = False):
             TrueClassIDX.append(indices)
     TrueClassIDX = np.array(TrueClassIDX)
     return TrueClassIDX
+
+
+### --- ESM Utils ---
+
+def load_esm_model(model_name):
+    model, alphabet = torch.hub.load("facebookresearch/esm:main", model_name)
+    #model, alphabet = esm_load_model_and_alphabet(model_name)
+    return model, alphabet
+
+def get_esm_embedding_dim(model_name):
+    esm_info = {
+        'esm2_t48_15B_UR50D':5120,
+        'esm2_t36_3B_UR50D':2560,
+        'esm2_t33_650M_UR50D':1280,
+        'esm2_t30_150M_UR50D':640,
+        'esm2_t12_35M_UR50D':480,
+        'esm2_t6_8M_UR50D':320,
+        'esm_if1_gvp4_t16_142M_UR50':512,
+        'esm1v_t33_650M_UR90S_[1-5]':1280,
+        'esm_msa1b_t12_100M_UR50S':768,
+        'esm1b_t33_650M_UR50S':1280,
+        'esm1_t34_670M_UR50S':1280,
+        'esm1_t34_670M_UR50D':1280,
+        'esm1_t34_670M_UR100':1280,
+        'esm1_t12_85M_UR50S':768,
+        'esm1_t6_43M_UR50S':768
+    }
+    if model_name.startswith('esm1v_t33_650M_UR90S_'):
+        model_name = 'esm1v_t33_650M_UR90S_[1-5]'
+    return esm_info[model_name]
