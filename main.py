@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--DEVICE', type=str, default='cpu')
     parser.add_argument('--NUM_OF_MODELS', type=int, default=1)
     parser.add_argument('--NUM_EPOCHS', type=int, default=50)
-    parser.add_argument('--MODEL_TYPE', type=str, default='ESM') # [BiLSTM, ProtBERT, Transformer_LSTM, ESM]
+    parser.add_argument('--MODEL_TYPE', type=str, default='ESM') # [BiLSTM, ProtBERT, Transformer_LSTM, ESM, ESM_LSTM]
     parser.add_argument('--BATCH_SIZE', type=int, default=64)
     parser.add_argument('--LEARNING_RATE', type=float, default=0.001)
     parser.add_argument('--SEQ_SIZE', type=int, default=7)
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--ESM_MODEL_NAME', type=str, default='esm2_t6_8M_UR50D')
     parser.add_argument('--USE_ESM_KINASE', type=bool, default=False)
     parser.add_argument('--USE_ESM_PHOSPHOSITE', type=bool, default=True)
+    parser.add_argument('--ESM_EMBEDDING_MODE', type=str, default='avg') # [avg, cls]
 
     args = parser.parse_args()
 

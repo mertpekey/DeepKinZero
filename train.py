@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from trainer import Trainer
-from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM, ESM_LSTM
+from model import  Bi_LSTM, HuggingFace_Transformer, Transformer_LSTM, ESM, ESM_LSTM
 from Utils.utils import ensemble, get_eval_predictions
 from sklearn.metrics import classification_report
 from create_dataset import create_datasets
@@ -44,6 +44,10 @@ def train_model(args):
         elif args.MODEL_TYPE == 'ProtT5':
             pass
         elif args.MODEL_TYPE == 'ESM':
+            trainer_model = ESM(model_name = args.ESM_MODEL_NAME,
+                                ClassEmbeddingsize = KE.Embedding_size,
+                                embedding_mode ='avg')
+        elif args.MODEL_TYPE == 'ESM_LSTM':
             trainer_model = ESM_LSTM(vocabnum = phosphosite_seq_size[1],
                                      seq_lens = phosphosite_seq_size[0],
                                      ClassEmbeddingsize = KE.Embedding_size,

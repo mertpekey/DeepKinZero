@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import Utils.config as config
-from Utils.utils import load_esm_model
+from Utils.utils import load_esm_model, get_esm_embedding_dim
 
 # rnnlib package for Bidirectional Layer Norm LSTM
 # https://github.com/daehwannam/pytorch-rnn-library
@@ -165,6 +165,35 @@ class Transformer_LSTM(nn.Module):
 
 ###################### ESM
 
+class ESM(nn.Module):
+    def __init__(self, model_name, ClassEmbeddingsize, embedding_mode='avg'):
+        super(ESM_LSTM, self).__init__()
+        
+        self.embedding_mode = embedding_mode
+        # (1025, 728) # In paper, author mentions W is uniformly distributed
+        self.W = torch.nn.Parameter(torch.rand(get_esm_embedding_dim(model_name) + 1, ClassEmbeddingsize + 1) * 0.05)
+        self.esm_model, self.esm_alphabet = load_esm_model(model_name)
+        self.last_hidden_state_index = len(self.esm_model.layers) - 1
+
+    def forward(self,X):
+        # For padding masking
+        batch_lens = (X.detach() != self.esm_alphabet.padding_idx).sum(1)
+
+        X = self.esm_model(X, repr_layers=[self.last_hidden_state_index])
+        X = X["representations"][self.last_hidden_state_index]
+
+        if self.embedding_mode == 'cls':
+            embedding = X[:, 0]
+        elif self.embedding_mode == 'avg':
+            # Generate per-sequence representations via averaging
+            embedding = torch.empty((len(batch_lens), X.size(1)))
+            for i, tokens_len in enumerate(batch_lens):
+                embedding[i] = X[i, 1:tokens_len - 1].mean(0)
+
+        embedding = torch.nn.functional.pad(embedding, (0, 1), value=1)
+        return torch.matmul(embedding, self.W)
+
+
 class ESM_LSTM(nn.Module):
     def __init__(self, vocabnum, seq_lens, ClassEmbeddingsize, model_name):
         super(ESM_LSTM, self).__init__()
@@ -179,5 +208,4 @@ class ESM_LSTM(nn.Module):
     def forward(self,X):
         X = self.esm_model(X, repr_layers=[self.last_hidden_state_index])
         X = X["representations"][self.last_hidden_state_index]
-        Matmul = self.LSTM(X)
-        return Matmul
+        return self.LSTM(X)
