@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--SEQ_SIZE', type=int, default=7)
     parser.add_argument('--IS_HUGGINGFACE', type=bool, default=False)
     parser.add_argument('--HF_ONLY_ID', type=bool, default=True)
+    parser.add_argument('--TRAIN_KINASE', type=bool, default=True)
     
     parser.add_argument('--SAVE_MODEL', type=bool, default=False)
     parser.add_argument('--SAVE_FILEPATH', type=str, default='50Epochs_DKZ')

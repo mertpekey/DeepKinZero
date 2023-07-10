@@ -21,6 +21,10 @@ class Trainer:
 
         # Set model device
         self.model.to(self.device)
+        if kinase_model is not None:
+            self.kinase_model.to(self.device)
+            if args.TRAIN_KINASE == False:
+                self.kinase_model.eval()
 
 
     def train_step(self, train_dataloader):
