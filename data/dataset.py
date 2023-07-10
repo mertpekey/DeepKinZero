@@ -16,7 +16,10 @@ class DKZ_Dataset(Dataset):
             self.phosphosite = torch.from_numpy(DE).float() # Phosphosite Protvec: (12901, 13, 100), Huggingface:
             
         if is_train:
-            self.kinase = torch.from_numpy(CE).float() # Kinase Embedding (12901, 727)
+            if args.USE_ESM_KINASE:
+                self.kinase = torch.from_numpy(CE) # Should int/long due to token ids
+            else:
+                self.kinase = torch.from_numpy(CE).float() # Kinase Embedding (12901, 727)
             self.labels = torch.from_numpy(TCI) # Labels (12901)
             self.kinase_set = torch.from_numpy(CKE) # Unique Kinase Embedding (214,727)
         else:
@@ -26,8 +29,12 @@ class DKZ_Dataset(Dataset):
         self.is_train = is_train
         
         if is_train:
-            self.kinase_with_1 = torch.from_numpy(np.c_[self.kinase, np.ones(len(self.kinase))]).float() # (12901, 728)
-            self.kinase_set_with_1 = torch.from_numpy(np.c_[self.kinase_set, np.ones(len(self.kinase_set))]).float() # (214,728)
+            if args.USE_ESM_KINASE:
+                self.kinase_with_1 = torch.from_numpy(np.c_[self.kinase, np.ones(len(self.kinase))]).to(torch.int64) # (12901, 728)
+                self.kinase_set_with_1 = torch.from_numpy(np.c_[self.kinase_set, np.ones(len(self.kinase_set))]).to(torch.int64) # (214,728)
+            else:
+                self.kinase_with_1 = torch.from_numpy(np.c_[self.kinase, np.ones(len(self.kinase))]).float() # (12901, 728)
+                self.kinase_set_with_1 = torch.from_numpy(np.c_[self.kinase_set, np.ones(len(self.kinase_set))]).float() # (214,728)
         else:
             self.kinase_with_1 = np.c_[self.kinase, np.ones(len(self.kinase))]
             self.kinase_set_with_1 = np.c_[self.kinase_set, np.ones(len(self.kinase_set))]

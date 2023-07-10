@@ -29,8 +29,10 @@ def train_model(args):
                                               embed_scaler=embed_scaler)
 
     # Define Model and Trainers
-    models, optimizers, schedulers, trainers = [], [], [], []
+    models, kinase_models, optimizers, schedulers, trainers = [], [], [], [], []
     
+    kinase_model = None
+
     for i in range(args.NUM_OF_MODELS):
         if args.MODEL_TYPE == 'BiLSTM':
             trainer_model = Bi_LSTM(vocabnum = phosphosite_seq_size[1], seq_lens = phosphosite_seq_size[0], ClassEmbeddingsize = KE.Embedding_size)
@@ -47,11 +49,19 @@ def train_model(args):
             trainer_model = ESM(model_name = args.ESM_MODEL_NAME,
                                 ClassEmbeddingsize = KE.Embedding_size,
                                 embedding_mode ='avg')
+            if args.USE_ESM_KINASE:
+                kinase_model = ESM(model_name = args.ESM_MODEL_NAME,
+                                   ClassEmbeddingsize = KE.Embedding_size,
+                                   embedding_mode ='avg')
         elif args.MODEL_TYPE == 'ESM_LSTM':
             trainer_model = ESM_LSTM(vocabnum = phosphosite_seq_size[1],
                                      seq_lens = phosphosite_seq_size[0],
                                      ClassEmbeddingsize = KE.Embedding_size,
                                      model_name=args.ESM_MODEL_NAME)
+            if args.USE_ESM_KINASE:
+                kinase_model = ESM(model_name = args.ESM_MODEL_NAME,
+                                   ClassEmbeddingsize = KE.Embedding_size,
+                                   embedding_mode ='avg')
         else:
             print('Input valid model name')
             sys.exit()
@@ -60,9 +70,10 @@ def train_model(args):
         trainer_scheduler = optim.lr_scheduler.ExponentialLR(trainer_optimizer, gamma=0.99954, last_epoch=-1)
 
         models.append(trainer_model)
+        kinase_models.append(kinase_model)
         optimizers.append(trainer_optimizer)
         schedulers.append(trainer_scheduler)
-        trainers.append(Trainer(models[i], optimizers[i], scheduler=schedulers[i], args=args))
+        trainers.append(Trainer(models[i], kinase_models[i], optimizers[i], scheduler=schedulers[i], args=args))
     
 
     # Train Eval Lists

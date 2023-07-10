@@ -167,7 +167,7 @@ class Transformer_LSTM(nn.Module):
 
 class ESM(nn.Module):
     def __init__(self, model_name, ClassEmbeddingsize, embedding_mode='avg'):
-        super(ESM_LSTM, self).__init__()
+        super(ESM, self).__init__()
         
         self.embedding_mode = embedding_mode
         # (1025, 728) # In paper, author mentions W is uniformly distributed
@@ -186,7 +186,7 @@ class ESM(nn.Module):
             embedding = X[:, 0]
         elif self.embedding_mode == 'avg':
             # Generate per-sequence representations via averaging
-            embedding = torch.empty((len(batch_lens), X.size(1)))
+            embedding = torch.empty((len(batch_lens), X.size(2)))
             for i, tokens_len in enumerate(batch_lens):
                 embedding[i] = X[i, 1:tokens_len - 1].mean(0)
 

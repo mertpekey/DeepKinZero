@@ -11,8 +11,9 @@ from Utils.utils import get_eval_predictions
 
 
 class Trainer:
-    def __init__(self, model, optimizer, scheduler, args):
+    def __init__(self, model, kinase_model, optimizer, scheduler, args):
         self.model = model
+        self.kinase_model = kinase_model
         self.optimizer = optimizer
         self.device = args.DEVICE
         self.lr_scheduler = scheduler
@@ -47,8 +48,13 @@ class Trainer:
             # Prediction
             y_pred = self.model(phosphosite)
 
-            # Calculation Loss
-            loss, outclassidx = self.criterion(y_pred, kinase)
+            # ESM Kinase Model Pass
+            if self.args.USE_ESM_KINASE:
+                kinase_embeddings = self.kinase_model(kinase)
+                # Calculation Loss
+                loss, outclassidx = self.criterion(y_pred, kinase_embeddings)
+            else:
+                loss, outclassidx = self.criterion(y_pred, kinase)
             
             # Calculating Gradients
             loss.backward()
@@ -73,8 +79,10 @@ class Trainer:
         
         #X, CE, y = next(iter(val_dataloader))
         phosphosite, kinase, labels = val_dataloader.phosphosite, val_dataloader.kinase_with_1, val_dataloader.labels
-        candidate_kinase_with_1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).float()
-        
+        if self.args.USE_ESM_KINASE:
+            candidate_kinase_with_1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).to(torch.int64)
+        else:
+            candidate_kinase_with_1 = torch.from_numpy(np.c_[ ValCandidatekinaseEmbeddings, np.ones(len(ValCandidatekinaseEmbeddings))]).float()
         # Set Data Device
         if self.args.HF_ONLY_ID:
             phosphosite = phosphosite.to(self.device)
@@ -86,6 +94,8 @@ class Trainer:
         with torch.no_grad():
 
             pred = self.model(phosphosite)
+            if self.args.USE_ESM_KINASE:
+                candidate_kinase_with_1 = self.kinase_model(candidate_kinase_with_1)
             
             # Equation 5 from paper
             logits = torch.matmul(pred, candidate_kinase_with_1.T)

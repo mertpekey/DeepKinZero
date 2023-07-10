@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 # Utils
 import csv
+from Utils.utils import load_esm_model
 
 
 class Kinase:
@@ -98,6 +99,9 @@ class KinaseEmbedding:
         self.GO_C_vec= GO_C_vec
         self.GO_F_vec= GO_F_vec
         self.GO_P_vec= GO_P_vec
+        if args.USE_ESM_PHOSPHOSITE:
+            _, self.esm_alphabet = load_esm_model(args.ESM_MODEL_NAME)
+            self.esm_batch_converter = self.esm_alphabet.get_batch_converter()
         self.read_kinase_embedding()
         self.read_kinases()
         self.Embedding_size = len(self.AllKinaseEmbeddings[0]) # 727
@@ -109,7 +113,7 @@ class KinaseEmbedding:
         with open(self.args.KINASE_PATH, 'r') as AllKinasefilecsv:
             AllKinasefile= csv.reader(AllKinasefilecsv, delimiter='\t')
             for row in AllKinasefile:
-                newkinase = Kinase(row[2], row[1], row[0], row[3])
+                newkinase = Kinase(row[2], row[1], row[0], row[4])
                 self.allkinases.append(newkinase)
                 self.UniProtID_to_Kinase[row[0]] = newkinase
             self.AllKinaseEmbeddings, _ = self.create_class_embedding(self.allkinases)
@@ -205,11 +209,23 @@ class KinaseEmbedding:
             UniqueClassEmbedding: list of unique class embeddings
         """
         KinaseEmbeddings = []
+        ESM_Kinase_Sequences = []
         for kin in kinases:
-            kin.EmbeddedVector = self.get_embedding(kin.UniprotID)
-            KinaseEmbeddings.append(kin.EmbeddedVector)
-            self.KE_to_Kinase[tuple(kin.EmbeddedVector)] = kin
-            
+            if self.args.USE_ESM_KINASE:
+                ESM_Kinase_Sequences.append((kin.UniprotID, kin.Kinase_Sequence.replace('_','-')))
+            else:
+                kin.EmbeddedVector = self.get_embedding(kin.UniprotID)
+                KinaseEmbeddings.append(kin.EmbeddedVector)
+                self.KE_to_Kinase[tuple(kin.EmbeddedVector)] = kin
+
+        if self.args.USE_ESM_KINASE:
+            _, _, batch_tokens = self.esm_batch_converter(ESM_Kinase_Sequences)
+            # Convert it to numpy (just to make it quick. Future could be stay as tensor)
+            batch_tokens = batch_tokens.cpu().numpy()
+            for i, kin in enumerate(kinases):
+                kin.EmbeddedVector = batch_tokens[i]
+                KinaseEmbeddings.append(kin.EmbeddedVector)
+                self.KE_to_Kinase[tuple(kin.EmbeddedVector)] = kin
         UniqueClassEmbedding = np.vstack({tuple(row) for row in KinaseEmbeddings}) # (457,727)
         return KinaseEmbeddings, UniqueClassEmbedding
     
@@ -230,15 +246,29 @@ class KinaseEmbedding:
         kinaseEmbeddings = []
         KE_to_Kinase = {}
         UniProtIDs = []
+        ESM_Kinase_Sequences = []
         with open(path, 'r') as kinasefile:
             for UniProtID in kinasefile:
                 UniProtID = UniProtID.strip()
                 UniProtIDs.append(UniProtID)
                 kinase = self.UniProtID_to_Kinase[UniProtID]
                 kinases.append(kinase)
-                kinaseEmbeddings.append(kinase.EmbeddedVector)
-                indices.append(self.allkinases.index(kinase))
-                KE_to_Kinase[tuple(kinase.EmbeddedVector)] = UniProtID
+                if self.args.USE_ESM_KINASE:
+                    ESM_Kinase_Sequences.append((kinase.UniprotID, kinase.Kinase_Sequence.replace('_','-')))
+                else:
+                    kinaseEmbeddings.append(kinase.EmbeddedVector)
+                    KE_to_Kinase[tuple(kinase.EmbeddedVector)] = UniProtID
+                    indices.append(self.allkinases.index(kinase))
+            
+            if self.args.USE_ESM_KINASE:
+                _, _, batch_tokens = self.esm_batch_converter(ESM_Kinase_Sequences)
+                # Convert it to numpy (just to make it quick. Future could be stay as tensor)
+                batch_tokens = batch_tokens.cpu().numpy()
+                for i, kin in enumerate(kinases):
+                    kinaseEmbeddings.append(batch_tokens[i])
+                    KE_to_Kinase[tuple(batch_tokens[i])] = UniProtID
+                    indices.append(self.allkinases.index(kinase))
+                
         return np.array(kinases), np.array(kinaseEmbeddings), np.array(indices), KE_to_Kinase, UniProtIDs
     
     def get_UniProtIDs_from_KE(self, KinaseEmbeddings):
