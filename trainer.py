@@ -54,7 +54,7 @@ class Trainer:
 
             # ESM Kinase Model Pass
             if self.args.USE_ESM_KINASE:
-                kinase_embeddings = self.kinase_model(kinase)
+                kinase_embeddings = self.kinase_model(kinase, only_embedding=True)
                 # Calculation Loss
                 loss, outclassidx = self.criterion(y_pred, kinase_embeddings)
             else:
@@ -99,8 +99,8 @@ class Trainer:
 
             pred = self.model(phosphosite)
             if self.args.USE_ESM_KINASE:
-                candidate_kinase_with_1 = self.kinase_model(candidate_kinase_with_1)
-            
+                candidate_kinase_with_1 = self.kinase_model(candidate_kinase_with_1, only_embedding=True)
+            # BAK
             # Equation 5 from paper
             logits = torch.matmul(pred, candidate_kinase_with_1.T)
             outclassidx = torch.argmax(logits, dim=1) 
@@ -179,12 +179,17 @@ class Trainer:
 
 
     def criterion(self, y_pred, kinase):
-        
-        # F: Compatibility Function
-        # Calculate F = DE * W * CE (I think here is CKE) for all the CEs in unique class embeddings (all the kinases)        
-        # y_pred = DE * W
-        # Equation 3 from paper
-        logits = torch.matmul(y_pred, self.train_dataset.kinase_set_with_1.T) # Output shape: (64,214)
+
+        if self.args.USE_ESM_KINASE:
+            with torch.no_grad():
+                kin_set_emb = self.kinase_model(self.train_dataset.kinase_set_with_1, only_embedding=True)
+            logits = torch.matmul(y_pred, kin_set_emb.T)
+        else:
+            # F: Compatibility Function
+            # Calculate F = DE * W * CE (I think here is CKE) for all the CEs in unique class embeddings (all the kinases)        
+            # y_pred = DE * W
+            # Equation 3 from paper
+            logits = torch.matmul(y_pred, self.train_dataset.kinase_set_with_1.T) # Output shape: (64,214)
         
         # Calculating the maximum of each row to normalize logits so that softmax doesn't overflow
         maxlogits = torch.max(logits, dim=1, keepdim=True)[0] # Output Shape: (64,1)

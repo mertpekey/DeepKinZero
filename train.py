@@ -61,7 +61,8 @@ def train_model(args):
             if args.USE_ESM_KINASE:
                 kinase_model = ESM(model_name = args.ESM_MODEL_NAME,
                                    ClassEmbeddingsize = KE.Embedding_size,
-                                   embedding_mode ='avg')
+                                   embedding_mode ='avg',
+                                   is_kinase = True)
         else:
             print('Input valid model name')
             sys.exit()

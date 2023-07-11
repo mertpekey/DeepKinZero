@@ -166,16 +166,17 @@ class Transformer_LSTM(nn.Module):
 ###################### ESM
 
 class ESM(nn.Module):
-    def __init__(self, model_name, ClassEmbeddingsize, embedding_mode='avg'):
+    def __init__(self, model_name, ClassEmbeddingsize, embedding_mode='avg', is_kinase=False):
         super(ESM, self).__init__()
         
         self.embedding_mode = embedding_mode
         # (1025, 728) # In paper, author mentions W is uniformly distributed
-        self.W = torch.nn.Parameter(torch.rand(get_esm_embedding_dim(model_name) + 1, ClassEmbeddingsize + 1) * 0.05)
+        if not is_kinase:
+            self.W = torch.nn.Parameter(torch.rand(get_esm_embedding_dim(model_name) + 1, ClassEmbeddingsize + 1) * 0.05)
         self.esm_model, self.esm_alphabet = load_esm_model(model_name)
         self.last_hidden_state_index = len(self.esm_model.layers) - 1
 
-    def forward(self,X):
+    def forward(self,X, only_embedding=False):
         # For padding masking
         batch_lens = (X.detach() != self.esm_alphabet.padding_idx).sum(1)
 
@@ -191,6 +192,8 @@ class ESM(nn.Module):
                 embedding[i] = X[i, 1:tokens_len - 1].mean(0)
 
         embedding = torch.nn.functional.pad(embedding, (0, 1), value=1)
+        if only_embedding:
+            return embedding
         return torch.matmul(embedding, self.W)
 
 

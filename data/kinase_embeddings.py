@@ -11,7 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 # Utils
 import csv
-from Utils.utils import load_esm_model
+from Utils.utils import load_esm_model, get_esm_embedding_dim
 
 
 class Kinase:
@@ -104,7 +104,10 @@ class KinaseEmbedding:
             self.esm_batch_converter = self.esm_alphabet.get_batch_converter()
         self.read_kinase_embedding()
         self.read_kinases()
-        self.Embedding_size = len(self.AllKinaseEmbeddings[0]) # 727
+        if args.USE_ESM_KINASE:
+            self.Embedding_size = get_esm_embedding_dim(self.args.ESM_MODEL_NAME) # 727
+        else:
+            self.Embedding_size = len(self.AllKinaseEmbeddings[0]) # 727
         
     def read_kinases(self):
         """
